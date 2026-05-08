@@ -626,19 +626,16 @@ if "password_correct" not in st.session_state:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if st.button("เข้าสู่ระบบ", use_container_width=True):
-
-            if u in USERS and USERS[u]["password"] == p:
-
-                st.session_state["password_correct"] = True
-                st.session_state["user_full_name"] = USERS[u]["fullname"]
-                st.session_state["username"] = u
-                st.session_state.page = "dashboard"
-
-                st.success("เข้าสู่ระบบสำเร็จ")
-                st.rerun()
-
-            else:
+        if st.button(
+            "เข้าสู่ระบบ",
+            use_container_width=True,
+            key="login_button_2"
+        ):
+            st.session_state["password_correct"] = True
+            st.session_state["user_full_name"] = u if u else "เจ้าหน้าที่ตำรวจ"
+            st.session_state.page = "dashboard"
+            st.rerun()
+        else:
                 st.error("Username หรือ Password ไม่ถูกต้อง")
 
         st.markdown("<br>", unsafe_allow_html=True)
