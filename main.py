@@ -11,9 +11,9 @@ import json
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import time
+import pytz
 # =================================================================
-# LOGO weid
+# PAGE CONFIG
 # =================================================================
 st.set_page_config(
     page_title="ระบบบันทึกจับกุม",
@@ -21,107 +21,502 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-# ================= LOGIN USERS =================
+
+# =================================================================
+# USERS
+# =================================================================
 USERS = {
-    "admin": {
-        "password": "123",
-        "fullname": "Admin"
-    },
-
-    "somkid": {
-        "password": "1234",
-        "fullname": "ร.ต.อ.สมคิด เชื้อเวียง"
-    },
-
-    "chaiporn": {
-        "password": "1234",
-        "fullname": "ร.ต.อ.ชัยพร ชอบงาม"
-    },
-
-    "teerawat": {
-        "password": "1234",
-        "fullname": "ส.ต.อ.ธีระวัฒน์ แก่นสาร"
-    },
-
-    "narongrit": {
-        "password": "1234",
-        "fullname": "ส.ต.อ.ณรงค์ฤทธิ์ เหล่าดี"
-    },
-
-    "wichakorn": {
-        "password": "1234",
-        "fullname": "ส.ต.อ.วิชชากร วงษ์โท"
-    },
-
-    "watchara": {
-        "password": "1234",
-        "fullname": "จ.ส.ต.วัชระ จันสุตะ"
-    },
-
-    "wachirawit": {
-        "password": "1234",
-        "fullname": "ส.ต.ท.วชิรวิชญ์ นันทรักษ์"
-    },
-
-    "wisarut": {
-        "password": "1234",
-        "fullname": "ส.ต.ท.วิศรุต จันทร์สิงห์"
-    },
-
-    "adisorn": {
-        "password": "1234",
-        "fullname": "ส.ต.ต.อดิศร ศุภนิกร"
-    }
+    "admin":      {"password": "123",  "fullname": "Admin"},
+    "somkid":     {"password": "1234", "fullname": "ร.ต.อ.สมคิด เชื้อเวียง"},
+    "chaiporn":   {"password": "1234", "fullname": "ร.ต.อ.ชัยพร ชอบงาม"},
+    "teerawat":   {"password": "1234", "fullname": "ส.ต.อ.ธีระวัฒน์ แก่นสาร"},
+    "narongrit":  {"password": "1234", "fullname": "ส.ต.อ.ณรงค์ฤทธิ์ เหล่าดี"},
+    "wichakorn":  {"password": "1234", "fullname": "ส.ต.อ.วิชชากร วงษ์โท"},
+    "watchara":   {"password": "1234", "fullname": "จ.ส.ต.วัชระ จันสุตะ"},
+    "wachirawit": {"password": "1234", "fullname": "ส.ต.ท.วชิรวิชญ์ นันทรักษ์"},
+    "wisarut":    {"password": "1234", "fullname": "ส.ต.ท.วิศรุต จันทร์สิงห์"},
+    "adisorn":    {"password": "1234", "fullname": "ส.ต.ต.อดิศร ศุภนิกร"},
 }
+
 # =================================================================
-# 1. INITIALIZE SESSION STATE
+# SESSION STATE INIT
 # =================================================================
-if "settings" not in st.session_state:
-    st.session_state.settings = {
-        "username": st.session_state.get("user_full_name", "เจ้าหน้าที่ตำรวจ"),
-        "bg_color": "#eef4ff",
-        "logo": None
-    }
+for key, default in [
+    ("settings", {"theme": "light", "logo": None}),
+    ("form", {}),
+    ("tab", 0),
+    ("records", []),
+    ("doc_records", []),
+    ("doc_running_numbers", {}),
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
-if "form" not in st.session_state:
-    st.session_state.form = {}
-
-if "tab" not in st.session_state:
-    st.session_state.tab = 0
-
-if "records" not in st.session_state:
-    st.session_state.records = []
-
-# =========================================================
-# THEME SYSTEM
-# =========================================================
-theme = st.session_state.get("settings", {}).get("theme", "Light")
-
-if theme == "Dark":
-    app_bg = "#0b1f4e"
-    text_color = "#ffffff"
-    card_bg = "#111827"
-    input_bg = "#111827"
-
-elif theme == "Blue Pro":
-    app_bg = "linear-gradient(180deg,#0b1f4e,#123a8f)"
-    text_color = "#ffffff"
-    card_bg = "#111827"
-    input_bg = "#111827"
-
-else:
-    app_bg = "linear-gradient(180deg,#f5f9ff,#eef4ff)"
-    text_color = "#111827"
-    card_bg = "#ffffff"
-    input_bg = "#ffffff"
 # =================================================================
-# 2. HELPER FUNCTIONS (FINAL STABLE PRO)
+# KTB DESIGN SYSTEM — CSS (แก้ไขครั้งเดียว ครอบคลุมทุกหน้า)
+# =================================================================
+KTB_BLUE       = "#00AEEF"   # Krungthai primary
+KTB_BLUE_DARK  = "#0076B6"   # Hover / dark shade
+KTB_NAVY       = "#003B6F"   # Deep navy for sidebar
+KTB_GOLD       = "#F5A623"   # Accent / KTB secondary
+KTB_TEXT       = "#1A2B45"   # Body text light mode
+KTB_SURFACE    = "#F5F8FB"   # Card bg light
+KTB_BORDER     = "#D6E4F0"   # Subtle border
+
+st.markdown(f"""
+<style>
+/* ─── GOOGLE FONTS ─────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+
+/* ─── CSS VARIABLES (Light + Dark) ─────────────────────── */
+:root {{
+    --ktb-blue:       {KTB_BLUE};
+    --ktb-blue-dark:  {KTB_BLUE_DARK};
+    --ktb-navy:       {KTB_NAVY};
+    --ktb-gold:       {KTB_GOLD};
+    --ktb-text:       {KTB_TEXT};
+    --ktb-surface:    {KTB_SURFACE};
+    --ktb-border:     {KTB_BORDER};
+    --ktb-radius:     12px;
+    --ktb-radius-lg:  18px;
+    --ktb-shadow:     0 2px 12px rgba(0,174,239,0.08);
+    --ktb-shadow-md:  0 4px 24px rgba(0,59,111,0.12);
+    /* dynamic */
+    --bg-page:        #EBF4FB;
+    --bg-card:        #FFFFFF;
+    --text-primary:   {KTB_TEXT};
+    --text-muted:     #5A7A99;
+    --text-label:     #2E4D6B;
+    --border-color:   {KTB_BORDER};
+    --input-bg:       #FFFFFF;
+    --sidebar-bg:     {KTB_NAVY};
+}}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {{
+    :root {{
+        --bg-page:      #0D1B2A;
+        --bg-card:      #112236;
+        --text-primary: #E8F4FD;
+        --text-muted:   #7FB3D3;
+        --text-label:   #A8CCE8;
+        --border-color: #1E3A54;
+        --input-bg:     #152D45;
+        --sidebar-bg:   #08131E;
+    }}
+}}
+
+/* Streamlit dark-mode class */
+[data-theme="dark"] {{
+    --bg-page:      #0D1B2A !important;
+    --bg-card:      #112236 !important;
+    --text-primary: #E8F4FD !important;
+    --text-muted:   #7FB3D3 !important;
+    --text-label:   #A8CCE8 !important;
+    --border-color: #1E3A54 !important;
+    --input-bg:     #152D45 !important;
+}}
+
+/* ─── BASE ──────────────────────────────────────────────── */
+html, body, [class*="css"], .stApp {{
+    font-family: 'Sarabun', sans-serif !important;
+    background: var(--bg-page) !important;
+    color: var(--text-primary) !important;
+}}
+
+/* ─── HIDE STREAMLIT CHROME ─────────────────────────────── */
+header[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDeployButton"] {{
+    display: none !important;
+}}
+
+/* ─── BLOCK CONTAINER ───────────────────────────────────── */
+.block-container {{
+    max-width: 1400px !important;
+    padding: 1.5rem 1.5rem 3rem !important;
+}}
+
+/* ─── SIDEBAR ────────────────────────────────────────────── */
+[data-testid="stSidebar"] {{
+    background: var(--sidebar-bg) !important;
+    border-right: 1px solid rgba(0,174,239,0.15) !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
+}}
+
+[data-testid="stSidebar"] * {{
+    color: #E8F4FD !important;
+    font-family: 'Sarabun', sans-serif !important;
+}}
+
+[data-testid="stSidebar"] .stButton > button {{
+    background: rgba(0,174,239,0.12) !important;
+    border: 1px solid rgba(0,174,239,0.3) !important;
+    color: #E8F4FD !important;
+    border-radius: var(--ktb-radius) !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+    text-align: left !important;
+    transition: background 0.2s, border-color 0.2s !important;
+}}
+
+[data-testid="stSidebar"] .stButton > button:hover {{
+    background: rgba(0,174,239,0.25) !important;
+    border-color: var(--ktb-blue) !important;
+}}
+
+/* ─── BUTTONS ────────────────────────────────────────────── */
+div.stButton > button {{
+    width: 100% !important;
+    background: linear-gradient(135deg, var(--ktb-blue) 0%, var(--ktb-blue-dark) 100%) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: var(--ktb-radius) !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    font-family: 'Sarabun', sans-serif !important;
+    letter-spacing: 0.2px !important;
+    transition: opacity 0.2s, transform 0.15s !important;
+    box-shadow: 0 3px 10px rgba(0,118,182,0.25) !important;
+}}
+
+div.stButton > button:hover {{
+    opacity: 0.92 !important;
+    transform: translateY(-1px) !important;
+}}
+
+div.stButton > button:active {{
+    transform: translateY(0) !important;
+    opacity: 1 !important;
+}}
+
+/* Secondary / ghost buttons (nav tabs) */
+.ktb-nav-btn > button {{
+    background: var(--bg-card) !important;
+    color: var(--text-muted) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}}
+
+.ktb-nav-btn-active > button,
+.ktb-nav-btn > button:hover {{
+    background: var(--ktb-blue) !important;
+    color: #fff !important;
+    border-color: var(--ktb-blue) !important;
+}}
+
+/* ─── INPUTS ─────────────────────────────────────────────── */
+.stTextInput input,
+.stDateInput input,
+.stTimeInput input,
+.stTextArea textarea,
+.stNumberInput input,
+.stSelectbox div[data-baseweb="select"] > div {{
+    background: var(--input-bg) !important;
+    color: var(--text-primary) !important;
+    border: 1.5px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    font-family: 'Sarabun', sans-serif !important;
+    font-size: 15px !important;
+    transition: border-color 0.2s !important;
+}}
+
+.stTextInput input:focus,
+.stTextArea textarea:focus,
+.stNumberInput input:focus {{
+    border-color: var(--ktb-blue) !important;
+    box-shadow: 0 0 0 3px rgba(0,174,239,0.12) !important;
+    outline: none !important;
+}}
+
+/* Labels */
+.stTextInput label, .stDateInput label, .stTimeInput label,
+.stSelectbox label, .stTextArea label, .stNumberInput label,
+.stRadio label, .stCheckbox label {{
+    color: var(--text-label) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    margin-bottom: 4px !important;
+}}
+
+input::placeholder, textarea::placeholder {{
+    color: var(--text-muted) !important;
+    opacity: 0.7 !important;
+}}
+
+/* ─── CARDS ──────────────────────────────────────────────── */
+.ktb-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--ktb-radius-lg);
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--ktb-shadow);
+    margin-bottom: 1rem;
+}}
+
+/* ─── KPI CARDS ──────────────────────────────────────────── */
+.kpi-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--ktb-blue);
+    border-radius: var(--ktb-radius);
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--ktb-shadow);
+    transition: box-shadow 0.2s;
+}}
+
+.kpi-card:hover {{
+    box-shadow: var(--ktb-shadow-md);
+}}
+
+.kpi-number {{
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--ktb-blue) !important;
+    line-height: 1.1;
+    margin: 4px 0;
+}}
+
+.kpi-label {{
+    font-size: 13px;
+    color: var(--text-muted) !important;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+
+.kpi-icon {{
+    font-size: 22px;
+    margin-bottom: 4px;
+}}
+
+/* ─── METRIC CARD ────────────────────────────────────────── */
+.metric-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--ktb-radius);
+    padding: 1rem 1.1rem;
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}}
+
+.metric-card:hover {{
+    border-color: var(--ktb-blue);
+    box-shadow: 0 0 0 3px rgba(0,174,239,0.1);
+}}
+
+.metric-icon {{ font-size: 24px; margin-bottom: 6px; }}
+.metric-no   {{ font-size: 32px; font-weight: 800; color: var(--ktb-blue) !important; }}
+.metric-text {{ font-size: 13px; color: var(--text-muted) !important; font-weight: 500; }}
+
+/* ─── HEADER BAR ─────────────────────────────────────────── */
+.main-header {{
+    background: linear-gradient(135deg, var(--ktb-blue) 0%, var(--ktb-blue-dark) 60%, var(--ktb-navy) 100%);
+    padding: 18px 24px;
+    border-radius: var(--ktb-radius-lg);
+    color: #fff !important;
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(0,59,111,0.2);
+    margin-bottom: 1.25rem;
+}}
+
+.main-header * {{ color: #fff !important; }}
+
+/* ─── SECTION DIVIDERS ───────────────────────────────────── */
+hr {{
+    border: none;
+    border-top: 1.5px solid var(--border-color) !important;
+    margin: 1.25rem 0 !important;
+}}
+
+/* ─── PLOTLY CHARTS ──────────────────────────────────────── */
+.js-plotly-plot {{
+    border-radius: var(--ktb-radius-lg) !important;
+    overflow: hidden !important;
+    box-shadow: var(--ktb-shadow) !important;
+}}
+
+/* ─── ALERTS / INFO ──────────────────────────────────────── */
+.stAlert {{
+    border-radius: var(--ktb-radius) !important;
+    font-family: 'Sarabun', sans-serif !important;
+}}
+
+/* ─── EXPANDER ───────────────────────────────────────────── */
+.streamlit-expanderHeader {{
+    background: var(--bg-card) !important;
+    border-radius: var(--ktb-radius) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}}
+
+/* ─── DATAFRAME ──────────────────────────────────────────── */
+[data-testid="stDataFrame"] {{
+    background: var(--bg-card) !important;
+    border-radius: var(--ktb-radius) !important;
+    overflow: hidden !important;
+}}
+
+/* ─── TABS (Streamlit native) ────────────────────────────── */
+button[data-baseweb="tab"] {{
+    font-family: 'Sarabun', sans-serif !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+}}
+
+button[data-baseweb="tab"][aria-selected="true"] {{
+    color: var(--ktb-blue) !important;
+    border-bottom-color: var(--ktb-blue) !important;
+}}
+
+/* ─── SPINNER ────────────────────────────────────────────── */
+.stSpinner > div {{ border-top-color: var(--ktb-blue) !important; }}
+
+/* ─── SCROLLBAR ──────────────────────────────────────────── */
+::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+::-webkit-scrollbar-track {{ background: transparent; }}
+::-webkit-scrollbar-thumb {{
+    background: rgba(0,174,239,0.3);
+    border-radius: 99px;
+}}
+::-webkit-scrollbar-thumb:hover {{ background: var(--ktb-blue); }}
+
+/* ─── MOBILE RESPONSIVE ──────────────────────────────────── */
+@media (max-width: 768px) {{
+    .block-container {{
+        padding: 0.75rem 0.75rem 2rem !important;
+    }}
+
+    [data-testid="stSidebar"] {{
+        min-width: 240px !important;
+        max-width: 240px !important;
+    }}
+
+    .kpi-number {{ font-size: 28px !important; }}
+    .main-header {{ font-size: 16px !important; padding: 14px 16px !important; }}
+
+    div.stButton > button {{
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+    }}
+
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input {{
+        font-size: 16px !important;  /* ป้องกัน iOS zoom */
+    }}
+}}
+
+@media (max-width: 480px) {{
+    .kpi-number {{ font-size: 24px !important; }}
+    .metric-no  {{ font-size: 24px !important; }}
+    .main-header {{ font-size: 15px !important; }}
+}}
+
+/* ─── LOGIN CARD ─────────────────────────────────────────── */
+.login-wrapper {{
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}}
+
+.login-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: var(--ktb-shadow-md);
+}}
+
+.logo-spin {{
+    width: 90px;
+    display: block;
+    margin: 0 auto 1rem;
+    animation: spinY 6s linear infinite;
+}}
+
+@keyframes spinY {{
+    from {{ transform: rotateY(0deg); }}
+    to   {{ transform: rotateY(360deg); }}
+}}
+
+/* ─── BADGE ──────────────────────────────────────────────── */
+.ktb-badge {{
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+}}
+
+.ktb-badge-blue {{
+    background: rgba(0,174,239,0.12);
+    color: var(--ktb-blue-dark) !important;
+}}
+
+.ktb-badge-gold {{
+    background: rgba(245,166,35,0.15);
+    color: #A0660A !important;
+}}
+
+/* ─── SECTION TITLE ──────────────────────────────────────── */
+.section-title {{
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ktb-navy);
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}}
+
+[data-theme="dark"] .section-title {{ color: var(--ktb-blue) !important; }}
+
+/* ─── NAV STRIP ──────────────────────────────────────────── */
+.ktb-nav-strip {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--ktb-radius);
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 1.25rem;
+}}
+
+/* ─── SIDEBAR PROFILE BOX ────────────────────────────────── */
+.sidebar-profile {{
+    background: rgba(0,174,239,0.1);
+    border: 1px solid rgba(0,174,239,0.2);
+    border-radius: var(--ktb-radius);
+    padding: 12px 14px;
+    margin: 0 0 1rem;
+    font-size: 13px;
+    line-height: 1.7;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+
+# =================================================================
+# HELPER FUNCTIONS
 # =================================================================
 def date_th(d):
     if not d:
         return "-"
-    months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-              "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+    months = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+              "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"]
     try:
         return f"{d.day} {months[d.month]} {d.year + 543}"
     except:
@@ -133,91 +528,67 @@ def safe_time(t):
         return t.strftime("%H:%M")
     return str(t) if t else "-"
 
-# ❌ ไม่ใช้
-def format_signature_line(line, name_text=""):
-    return line
+
+def to_arabic_number(text):
+    if text is None:
+        return ""
+    m = {"๐":"0","๑":"1","๒":"2","๓":"3","๔":"4",
+         "๕":"5","๖":"6","๗":"7","๘":"8","๙":"9"}
+    return "".join(m.get(c, c) for c in str(text))
+
+
+def format_thai_id(id_number):
+    digits = "".join(filter(str.isdigit, str(id_number or "")))
+    if len(digits) != 13:
+        return id_number or ""
+    return f"{digits[0]}-{digits[1:5]}-{digits[5:10]}-{digits[10:12]}-{digits[12]}"
+
+
+def clean_geo(text):
+    if not text:
+        return ""
+    text = str(text).strip()
+    for w in ["จังหวัด","อำเภอ","ตำบล"]:
+        text = text.replace(w, "")
+    return text.strip()
+
+
+def format_amphur(name):
+    if not name:
+        return ""
+    for x in ["อำเภอ","อ.","เขต"]:
+        name = str(name).replace(x, "")
+    return name.strip()
+
+
+def format_tambon(name):
+    return str(name or "").replace("ตำบล","").strip()
+
+
+def safe_index(value, options):
+    return options.index(value) if value in options else 0
+
 
 def remove_empty_signature_rows(doc):
-    """
-    🔥 ลบแถวลายเซ็นที่ไม่มีชื่อจริง (เช็คทั้งแถว)
-    """
     for table in doc.tables:
         rows_to_remove = []
-
         for row in table.rows:
             if len(row.cells) < 3:
                 continue
-
-            left = row.cells[0].text.strip()
             center = row.cells[1].text.strip()
-            right = row.cells[2].text.strip()
-
-            # 🔥 เงื่อนไขใหม่ (แม่นกว่าเดิม)
-            if (
-                right == "" and
-                "ผู้จับกุม" in center
-            ):
+            right  = row.cells[2].text.strip()
+            if right == "" and "ผู้จับกุม" in center:
                 rows_to_remove.append(row)
-
         for row in rows_to_remove:
             table._tbl.remove(row._tr)
 
-def center_signature_lines(doc):
-    """
-    ✔ ล็อค "(ลงชื่อ)" ให้อยู่กลางคอลัมน์
-    """
-    for table in doc.tables:
-        for row in table.rows:
-            if len(row.cells) < 3:
-                continue
 
-            for para in row.cells[0].paragraphs:
-                if "ลงชื่อ" in para.text:
-                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-
-def tighten_signature_spacing(doc):
-    """
-    ✔ spacing แน่น สวย ไม่ลอย
-    """
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    para.paragraph_format.space_before = Pt(0)
-                    para.paragraph_format.space_after = Pt(0)
-                    para.paragraph_format.line_spacing = 1
-
-
-def split_rank_name(fullname):
-    """
-    ✔ แยกยศ + ชื่อ
-    """
-    ranks = [
-        "พ.ต.อ.", "พ.ต.ท.", "พ.ต.ต.",
-        "ร.ต.อ.", "ร.ต.ท.", "ร.ต.ต.",
-        "ด.ต.", "จ.ส.ต.",
-        "ส.ต.อ.", "ส.ต.ท.", "ส.ต.ต."
-    ]
-
-    fullname = str(fullname).strip()
-
-    for rank in ranks:
-        if fullname.startswith(rank):
-            name = fullname[len(rank):].strip()
-            return rank, name
-
-    return "", fullname
 def replace_text(doc, data):
-
     def smart_replace(paragraph):
         full_text = "".join(run.text for run in paragraph.runs)
-
         for key, value in data.items():
             if key in full_text:
                 full_text = full_text.replace(key, str(value))
-
-        # 🔥 เขียนทับทั้งย่อหน้า (กันพัง)
         if paragraph.runs:
             paragraph.runs[0].text = full_text
             for run in paragraph.runs[1:]:
@@ -225,7 +596,6 @@ def replace_text(doc, data):
 
     for p in doc.paragraphs:
         smart_replace(p)
-
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -233,1008 +603,344 @@ def replace_text(doc, data):
                     smart_replace(p)
     remove_empty_signature_rows(doc)
 
-def format_thai_id(id_number):
-    if not id_number:
-        return ""
-
-    digits = "".join(filter(str.isdigit, str(id_number)))
-
-    if len(digits) != 13:
-        return id_number  # ถ้าไม่ครบ 13 หลัก ไม่แตะ
-
-    return f"{digits[0]}-{digits[1:5]}-{digits[5:10]}-{digits[10:12]}-{digits[12]}"
-# ✅ 🔥 วางตรงนี้เลย
-def clean_geo(text):
-    """
-    ฟังก์ชันทำความสะอาดชื่อจังหวัด/อำเภอ/ตำบล
-    - ลบช่องว่างเกิน
-    - ลบคำที่ไม่จำเป็น เช่น 'จังหวัด', 'อำเภอ', 'ตำบล'
-    """
-    if not text:
-        return ""
-    text = str(text).strip()
-    for word in ["จังหวัด", "อำเภอ", "ตำบล"]:
-        text = text.replace(word, "")
-    return text.strip()
-
-def format_amphur(name):
-    if not name:
-        return ""
-    name = str(name)
-    for x in ["อำเภอ", "อ.", "เขต"]:
-        name = name.replace(x, "")
-    return name.strip()
-
-def format_tambon(name):
-    if not name:
-        return ""
-    return str(name).replace("ตำบล", "").strip()
 
 @st.cache_data
 def load_geo():
     try:
         df = pd.read_csv("thai_districts.csv", encoding="utf-8-sig")
-    except:
+    except Exception:
         df = pd.read_csv("thai_districts.csv", encoding="cp874")
-
-    # 🔥 CLEAN ทั้งระบบครั้งเดียว
     df["ProvinceThai"] = df["ProvinceThai"].apply(clean_geo)
-    df["DistrictThai"] = df["DistrictThai"].apply(clean_geo)
-    df["TambonThai"] = df["TambonThai"].apply(clean_geo)
-
-    df["DistrictThai"] = df["DistrictThai"].apply(format_amphur)
-    df["TambonThai"] = df["TambonThai"].apply(format_tambon)
-
+    df["DistrictThai"] = df["DistrictThai"].apply(clean_geo).apply(format_amphur)
+    df["TambonThai"]   = df["TambonThai"].apply(clean_geo).apply(format_tambon)
     return df
 
-# ================= VEHICLE MODEL MAP (PRO) =================
-VEHICLE_MODELS = {
-    "Honda": ["Wave 110i", "Wave 125i", "Click 125i", "PCX", "ADV160"],
-    "Yamaha": ["NMAX", "Aerox", "Grand Filano", "Fino"],
-    "Toyota": ["Vios", "Yaris", "Hilux Revo", "Fortuner"],
-    "Isuzu": ["D-Max", "MU-X"],
-    "Nissan": ["Navara", "Almera"],
-    "Mazda": ["Mazda2", "Mazda3", "BT-50"]
-}
 
-# =========================================================
-# 3. LOGO BASE64 (SAFE)
-# =========================================================
 def get_base64(path):
     if not os.path.exists(path):
         return ""
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(BASE_DIR, "police_logo.png")
-logo_base64 = st.session_state.settings.get("logo") or get_base64(logo_path)
 
-# =========================================================
-# 4. CSS (ONCE ONLY - FIXED + DARK MODE)
-# =========================================================
-st.markdown(f"""
-<style>
-header[data-testid="stHeader"]{{
-    background:transparent !important;
-    box-shadow:none !important;
-}}
+VEHICLE_MODELS = {
+    "Honda":  ["Wave 110i","Wave 125i","Click 125i","PCX","ADV160"],
+    "Yamaha": ["NMAX","Aerox","Grand Filano","Fino"],
+    "Toyota": ["Vios","Yaris","Hilux Revo","Fortuner"],
+    "Isuzu":  ["D-Max","MU-X"],
+    "Nissan": ["Navara","Almera"],
+    "Mazda":  ["Mazda2","Mazda3","BT-50"],
+}
 
-[data-testid="stToolbar"],
-[data-testid="stDeployButton"]{{
-    display:none !important;
-}}
+OFFICERS = [
+    "ร.ต.อ.สมคิด เชื้อเวียง","ร.ต.อ.ชัยพร ชอบงาม","ร.ต.ท.พจน์ ปาสาจันทร์",
+    "ร.ต.ต.ประจวบ ศรีบุระ","ส.ต.อ.ธีระวัฒน์ แก่นสาร","ส.ต.อ.ณรงค์ฤทธิ์ เหล่าดี",
+    "ส.ต.อ.วิชชากร วงษ์โท","ด.ต.ยุทธพงษ์ ชาดแดง","จ.ส.ต.วัชระ จันสุตะ",
+    "ส.ต.ท.วชิรวิชญ์ นันทรักษ์","ส.ต.ท.วิศรุต จันทร์สิงห์","ส.ต.ท.เอกพจน์ อินผล",
+    "ส.ต.ต.อดิศร ศุภนิกร",
+]
 
-[data-testid="collapsedControl"]{{
-    position:fixed !important;
-    top:15px !important;
-    left:15px !important;
-    z-index:9999 !important;
-    display:flex !important;
-    align-items:center;
-    justify-content:center;
-    width:42px !important;
-    height:42px !important;
-    background:linear-gradient(135deg,#123a8f,#0b2159) !important;
-    color:white !important;
-    border-radius:12px !important;
-    box-shadow:0 6px 14px rgba(0,0,0,0.25) !important;
-    cursor:pointer !important;
-}}
+BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+logo_b64    = st.session_state.settings.get("logo") or get_base64(os.path.join(BASE_DIR, "police_logo.png"))
 
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700;800&display=swap');
 
-html, body, [class*="css"]{{
-    font-family:'Sarabun', sans-serif;
-}}
+# =================================================================
+# CHART THEME (Plotly)
+# =================================================================
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Sarabun, sans-serif", color="#5A7A99", size=12),
+    margin=dict(l=20, r=20, t=44, b=20),
+    title_font=dict(size=15, color="#003B6F"),
+    colorway=["#00AEEF","#0076B6","#003B6F","#F5A623","#2EC4B6","#E84855"],
+    xaxis=dict(gridcolor="rgba(0,174,239,0.08)", linecolor="rgba(0,0,0,0.08)"),
+    yaxis=dict(gridcolor="rgba(0,174,239,0.08)", linecolor="rgba(0,0,0,0.08)"),
+)
 
-/* ================= THEME COLORS ================= */
-.stApp {{
-    background:{app_bg} !important;
-}}
 
-h1,h2,h3,h4,h5,h6 {{
-    color:{text_color} !important;
-}}
-
-p, span, div {{
-    color:{text_color};
-}}
-
-label {{
-    color:{text_color} !important;
-    font-weight:600 !important;
-}}
-
-.stMarkdown, .stMarkdown p {{
-    color:{text_color} !important;
-}}
-
-.stTextInput input,
-.stDateInput input,
-.stTimeInput input,
-.stTextArea textarea,
-.stNumberInput input {{
-    color:{text_color} !important;
-    background:{input_bg} !important;
-    border:1px solid rgba(128,128,128,0.3) !important;
-}}
-
-.stSelectbox div[data-baseweb="select"] > div {{
-    color:{text_color} !important;
-    background:{input_bg} !important;
-}}
-
-.stTextInput label,
-.stDateInput label,
-.stTimeInput label,
-.stSelectbox label,
-.stTextArea label,
-.stNumberInput label {{
-    color:{text_color} !important;
-    font-weight:700 !important;
-}}
-
-input::placeholder, textarea::placeholder {{
-    color:{"#9ca3af" if theme != "Light" else "#6b7280"} !important;
-    opacity:1 !important;
-}}
-
-button[data-baseweb="tab"] {{
-    color:{text_color} !important;
-}}
-
-.streamlit-expanderHeader {{
-    color:{text_color} !important;
-}}
-
-[data-testid="stDataFrame"] {{
-    background:{card_bg} !important;
-}}
-
-/* ================= BLOCK ================= */
-.block-container {{
-    max-width:1450px !important;
-    padding-top:1rem;
-    padding-bottom:2rem;
-    position:relative;
-    z-index:1;
-}}
-
-/* ================= SIDEBAR ================= */
-[data-testid="stSidebar"] {{
-    background:#0b1f4e !important;
-    color:white !important;
-    border-right:1px solid rgba(255,255,255,0.08);
-    min-width:320px !important;
-    max-width:320px !important;
-}}
-
-[data-testid="stSidebar"] * {{
-    color:#ffffff !important;
-}}
-
-/* ================= LOGIN ================= */
-.logo-img {{
-    width:160px;
-    display:block;
-    margin:auto;
-    animation:spinlogo 4s linear infinite;
-    transform-style:preserve-3d;
-}}
-
-@keyframes spinlogo {{
-    from{{transform:rotateY(0deg);}}
-    to{{transform:rotateY(360deg);}}
-}}
-
-.title-main {{
-    text-align:center;
-    font-size:40px;
-    font-weight:800;
-    color:{"#0b1f4e" if theme == "Light" else "#ffffff"};
-    margin-top:10px;
-}}
-
-.title-sub {{
-    text-align:center;
-    font-size:18px;
-    color:{"#555" if theme == "Light" else "#cccccc"};
-    margin-bottom:20px;
-}}
-
-/* ================= BUTTON ================= */
-div.stButton > button {{
-    width:100% !important;
-    border:none;
-    border-radius:14px;
-    padding:12px 14px;
-    font-size:16px;
-    font-weight:700;
-    background:linear-gradient(135deg,#123a8f,#0b2159);
-    color:white !important;
-    box-shadow:0 8px 18px rgba(0,0,0,0.12);
-}}
-
-div.stButton > button:hover {{
-    transform:translateY(-2px);
-}}
-
-/* ================= HEADER BAR ================= */
-.main-header {{
-    background:linear-gradient(135deg,#0b1f4e,#123a8f);
-    padding:14px 20px;
-    border-radius:16px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:15px;
-    color:white !important;
-    font-weight:800;
-    font-size:22px;
-    box-shadow:0 10px 25px rgba(0,0,0,0.15);
-}}
-
-.main-header * {{
-    color:white !important;
-}}
-
-.header-line {{
-    height:2px;
-    background:#d9e6ff;
-    margin-top:10px;
-    margin-bottom:20px;
-}}
-
-/* ================= KPI CARD ================= */
-.kpi-card {{
-    background:linear-gradient(135deg,#111827,#1e3a8a);
-    padding:22px;
-    border-radius:22px;
-    color:white;
-    box-shadow:0 10px 30px rgba(0,0,0,0.25);
-}}
-
-.kpi-card * {{
-    color:white !important;
-}}
-
-.kpi-number {{
-    font-size:42px;
-    font-weight:800;
-    color:white !important;
-}}
-
-.kpi-label {{
-    opacity:0.8;
-    color:white !important;
-}}
-
-/* ================= METRIC CARD ================= */
-.metric-card {{
-    background:linear-gradient(135deg,#0f172a,#1e3a8a);
-    border-radius:22px;
-    padding:22px;
-    text-align:center;
-    box-shadow:0 10px 25px rgba(0,0,0,0.18);
-    transition:0.25s;
-    color:white;
-    position:relative;
-    overflow:hidden;
-}}
-
-.metric-card * {{
-    color:white !important;
-}}
-
-.metric-card:hover {{
-    transform:translateY(-4px);
-    box-shadow:0 12px 25px rgba(0,0,0,0.22);
-}}
-
-.metric-icon {{ font-size:26px; margin-bottom:8px; }}
-.metric-no {{ font-size:42px; font-weight:800; color:#ffffff !important; }}
-.metric-text {{ font-size:15px; color:rgba(255,255,255,0.85) !important; font-weight:500; }}
-
-/* ================= PLOTLY ================= */
-.js-plotly-plot {{
-    border-radius:18px !important;
-    overflow:hidden !important;
-    box-shadow:0 10px 30px rgba(0,0,0,0.25);
-    background:#111827 !important;
-    padding:10px;
-}}
-
-hr {{
-    border:none;
-    border-top:1px solid {"#d8e1f2" if theme == "Light" else "rgba(255,255,255,0.1)"};
-}}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ================= LOGIN UI =================
+# =================================================================
+# ─── LOGIN ──────────────────────────────────────────────────────
+# =================================================================
 if "password_correct" not in st.session_state:
-
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-
-    if logo_base64:
+    if logo_b64:
         st.markdown(
-            f'<img class="logo-img" src="data:image/png;base64,{logo_base64}">',
-            unsafe_allow_html=True
+            f'<img class="logo-spin" src="data:image/png;base64,{logo_b64}">',
+            unsafe_allow_html=True,
         )
-
     st.markdown("""
-    <div class="title-main">ยินดีต้อนรับ</div>
-    <div class="title-sub">
-        ระบบบันทึกการจับกุม งานจราจร<br>
-        สภ.ตระการพืชผล
+    <div style="text-align:center; margin-bottom:1.5rem;">
+        <div style="font-size:28px; font-weight:800; color:var(--ktb-blue);">ยินดีต้อนรับ</div>
+        <div style="font-size:15px; color:var(--text-muted); margin-top:4px;">
+            ระบบบันทึกการจับกุม งานจราจร<br>
+            <strong>สถานีตำรวจภูธรตระการพืชผล</strong>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ================= INPUT CENTER =================
-    # ================= INPUT CENTER =================
-    c1, c2, c3 = st.columns([1.4,2,1])
-
-    with c2:
-        u = st.text_input(
-            "👤 Username",
-            key="login_user"
-        )
-
-        p = st.text_input(
-            "🔒 Password",
-            type="password",
-            key="login_pass"
-        )
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        if st.button(
-            "เข้าสู่ระบบ",
-            use_container_width=True,
-            key="login_button_2"
-        ):
-            user_data = USERS.get(u)
-            if user_data and user_data["password"] == p:
-                st.session_state["password_correct"] = True
-                st.session_state["user_full_name"] = user_data["fullname"]
+    _, c, _ = st.columns([1, 2, 1])
+    with c:
+        u = st.text_input("👤 ชื่อผู้ใช้งาน", key="lu")
+        p = st.text_input("🔒 รหัสผ่าน", type="password", key="lp")
+        st.write("")
+        if st.button("เข้าสู่ระบบ", use_container_width=True):
+            ud = USERS.get(u)
+            if ud and ud["password"] == p:
+                st.session_state["password_correct"]  = True
+                st.session_state["user_full_name"]     = ud["fullname"]
                 st.session_state.page = "dashboard"
                 st.rerun()
             else:
                 st.error("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
-
-    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 
-# =========================================================
+# =================================================================
 # DEFAULT PAGE
-# =========================================================
+# =================================================================
 if "page" not in st.session_state:
     st.session_state.page = "dashboard"
 
-# ================= DASHBOARD DATA (FIX ERROR) =================
-records = st.session_state.get("records", [])
+records     = st.session_state.get("records", [])
+doc_records = st.session_state.get("doc_records", [])
 
-total = len(records)
-
-today = len([
-    r for r in records
-    if str(r.get("report_date")) == str(datetime.date.today())
-])
-
-printed = total
-latest = records[-1].get("name", "-") if len(records) > 0 else "-"
-
-
-# =========================================================
-# DASHBOARD PAGE PRO
-# =========================================================
-if st.session_state.get("page") == "dashboard":
+# =================================================================
+# ─── SIDEBAR ────────────────────────────────────────────────────
+# =================================================================
+with st.sidebar:
+    if logo_b64:
+        st.markdown(
+            f'<div style="text-align:center;margin-bottom:8px;">'
+            f'<img src="data:image/png;base64,{logo_b64}" width="80" '
+            f'style="border-radius:16px;padding:8px;background:rgba(0,174,239,0.15);"></div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("""
-    <style>
-
-    .dashboard-title{
-        font-size:34px;
-        font-weight:800;
-        color:white;
-    }
-
-    .kpi-card{
-        background:linear-gradient(135deg,#111827,#1e3a8a);
-        padding:22px;
-        border-radius:22px;
-        color:white;
-        box-shadow:0 10px 30px rgba(0,0,0,0.25);
-    }
-
-    .kpi-number{
-        font-size:42px;
-        font-weight:800;
-    }
-
-    .kpi-label{
-        opacity:0.8;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-    records = st.session_state.get("records", [])
-    doc_records = st.session_state.get("doc_records", [])
-
-    total = len(records)
-
-    today = len([
-        r for r in records
-        if str(r.get("report_date")) == str(datetime.date.today())
-    ])
-
-    printed = total
-
-    latest = "-"
-    if records:
-        latest = records[-1].get("name", "-")
-
-    # =====================================================
-    # HEADER
-    # =====================================================
-
-    st.markdown("""
-    <div class="main-header">
-        🚔 POLICE REALTIME DASHBOARD
+    <div style="text-align:center;font-size:17px;font-weight:800;
+                color:#00AEEF;margin-bottom:14px;line-height:1.35;">
+        ระบบบันทึกจับกุม<br>
+        <span style="font-size:13px;font-weight:400;color:#7FB3D3;">งานจราจร</span>
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown(
+        f'<div class="sidebar-profile">'
+        f'👮 <strong>{st.session_state.get("user_full_name","เจ้าหน้าที่")}</strong><br>'
+        f'🏢 สภ.ตระการพืชผล</div>',
+        unsafe_allow_html=True,
+    )
+
+    nav_items = [
+        ("🏠", "หน้าแรก",      "dashboard"),
+        ("📋", "บันทึกจับกุม", "form"),
+        ("🔎", "ค้นหาเอกสาร",  "search"),
+        ("📂", "จัดการเอกสาร", "documents"),
+        ("📅", "ตารางเวร",      "schedule"),
+        ("⚙️", "ตั้งค่า",       "settings"),
+    ]
+    for icon, label, page_key in nav_items:
+        if st.button(f"{icon}  {label}", use_container_width=True, key=f"nav_{page_key}"):
+            st.session_state.page = page_key
+            st.rerun()
+
+    st.markdown("<hr style='margin:10px 0;border-color:rgba(0,174,239,0.2);'>", unsafe_allow_html=True)
+
+    if st.button("🚪  ออกจากระบบ", use_container_width=True, key="logout_btn"):
+        st.session_state.confirm_logout = True
+
+if st.session_state.get("confirm_logout"):
+    st.warning("⚠️ ต้องการออกจากระบบ? ข้อมูลที่ยังไม่บันทึกจะหายไป")
+    cy, cn = st.columns(2)
+    if cy.button("✅ ยืนยัน", key="confirm_yes"):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+    if cn.button("❌ ยกเลิก", key="confirm_no"):
+        st.session_state.confirm_logout = False
+        st.rerun()
+
+
+# =================================================================
+# ─── DASHBOARD ──────────────────────────────────────────────────
+# =================================================================
+if st.session_state.page == "dashboard":
+    total   = len(records)
+    today   = len([r for r in records if str(r.get("report_date")) == str(datetime.date.today())])
+    latest  = records[-1].get("name", "-") if records else "-"
+
+    st.markdown('<div class="main-header">🚔&nbsp; POLICE REALTIME DASHBOARD — สภ.ตระการพืชผล</div>', unsafe_allow_html=True)
+
+    # KPI Row
+    kpi_data = [
+        ("📁", total,   "คดีทั้งหมด"),
+        ("📅", today,   "วันนี้"),
+        ("🖨️", total,   "เอกสารทั้งหมด"),
+        ("👤", latest,  "ล่าสุด"),
+    ]
+    cols = st.columns(4)
+    for col, (icon, val, label) in zip(cols, kpi_data):
+        col.markdown(
+            f'<div class="kpi-card">'
+            f'<div class="kpi-icon">{icon}</div>'
+            f'<div class="kpi-number">{val}</div>'
+            f'<div class="kpi-label">{label}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     st.write("")
 
-    # =====================================================
-    # KPI CARDS
-    # =====================================================
-
-    c1,c2,c3,c4 = st.columns(4)
-
-    with c1:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-number">{total}</div>
-            <div class="kpi-label">คดีทั้งหมด</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-number">{today}</div>
-            <div class="kpi-label">วันนี้</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c3:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-number">{printed}</div>
-            <div class="kpi-label">เอกสารทั้งหมด</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c4:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-number">{latest}</div>
-            <div class="kpi-label">ล่าสุด</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.write("")
-
-    # =====================================================
-    # SAMPLE DATA
-    # =====================================================
-
-    if len(records) == 0:
-
-        sample = []
-
-        charges = [
-            "เมาแล้วขับ",
-            "ไม่มีใบขับขี่",
-            "ขับเร็ว",
-            "ฝ่าไฟแดง",
-            "ไม่สวมหมวก"
-        ]
-
-        for i in range(60):
-
-            sample.append({
-                "report_date": datetime.date.today() - datetime.timedelta(days=np.random.randint(0,30)),
-                "charge": np.random.choice(charges),
-                "hour": np.random.randint(0,24)
-            })
-
+    # ── Sample / real data ──
+    if not records:
+        charges = ["เมาแล้วขับ","ไม่มีใบขับขี่","ขับเร็ว","ฝ่าไฟแดง","ไม่สวมหมวก"]
+        sample = [{
+            "report_date": datetime.date.today() - datetime.timedelta(days=int(np.random.randint(0,30))),
+            "charge": str(np.random.choice(charges)),
+            "hour":   int(np.random.randint(0,24)),
+        } for _ in range(60)]
         df = pd.DataFrame(sample)
-
     else:
-
-        temp = []
-
+        rows = []
         for r in records:
-
-            dt = r.get("report_date", datetime.date.today())
-
             try:
-                d = pd.to_datetime(dt)
-            except:
+                d = pd.to_datetime(r.get("report_date", datetime.date.today()))
+            except Exception:
                 d = pd.to_datetime(datetime.date.today())
+            rows.append({"report_date": d, "charge": r.get("charge","อื่นๆ"), "hour": int(np.random.randint(0,24))})
+        df = pd.DataFrame(rows)
 
-            temp.append({
-                "report_date": d,
-                "charge": r.get("charge","อื่นๆ"),
-                "hour": np.random.randint(0,24)
-            })
+    df["report_date"] = pd.to_datetime(df["report_date"], errors="coerce")
+    df["month"]       = df["report_date"].dt.strftime("%m")
 
-        df = pd.DataFrame(temp)
+    charge_df = df.groupby("charge").size().reset_index(name="count")
+    month_df  = df.groupby("month").size().reset_index(name="count")
 
-    # =====================================================
-    # CREATE CHARTS
-    # =====================================================
-
-    # ---------- MONTH ----------
-    df["report_date"] = pd.to_datetime(
-        df["report_date"],
-        errors="coerce"
-    )
-
-    df["month"] = df["report_date"].dt.strftime("%m")
-
-    month_df = (
-        df.groupby("month")
-        .size()
-        .reset_index(name="count")
-    )
-
-    fig_month = px.bar(
-        month_df,
-        x="month",
-        y="count",
-        text_auto=True,
-        title="📈 สถิติคดีรายเดือน"
-    )
-
-    # ---------- CHARGE ----------
-    charge_df = (
-        df.groupby("charge")
-        .size()
-        .reset_index(name="count")
-    )
-
-    fig_charge = px.bar(
-        charge_df,
-        x="charge",
-        y="count",
-        color="charge",
-        title="🚨 สถิติแยกตามข้อหา"
-    )
-
-    # ---------- PIE ----------
-    fig_pie = px.pie(
-        charge_df,
-        names="charge",
-        values="count",
-        title="🥧 สัดส่วนข้อหา"
-    )
-
-    # ---------- HEATMAP ----------
-    heat = (
-        df.groupby("hour")
-        .size()
-        .reset_index(name="count")
-    )
-
-    fig_heat = px.density_heatmap(
-        heat,
-        x="hour",
-        y="count",
-        title="🔥 Heatmap เวลาเกิดเหตุ"
-    )
-
-    # ---------- REALTIME ----------
-    realtime = pd.DataFrame({
-        "เวลา": pd.date_range(
-            start=datetime.datetime.now(),
-            periods=20,
-            freq="min"
-        ),
-        "คดี": np.random.randint(1,10,20)
-    })
-
-    fig_real = px.line(
-        realtime,
-        x="เวลา",
-        y="คดี",
-        title="📡 Realtime Monitoring"
-    )
-
-    # ---------- DOCUMENT ----------
-    fig_doc = None
-
-    if len(doc_records) > 0:
-
-        doc_df = pd.DataFrame(doc_records)
-
-        if "doc_type" in doc_df.columns:
-
-            dfg = (
-                doc_df.groupby("doc_type")
-                .size()
-                .reset_index(name="count")
-            )
-
-            fig_doc = px.bar(
-                dfg,
-                x="doc_type",
-                y="count",
-                color="doc_type",
-                title="📂 เอกสารราชการ"
-            )
-
-    # =====================================================
-    # DASHBOARD GRID LAYOUT
-    # =====================================================
-
-    # ---------- ROW 1 ----------
-    g1, g2 = st.columns([1.4,1])
+    g1, g2 = st.columns([1.5, 1])
 
     with g1:
-
-        fig_month.update_layout(
-            height=420,
-            template="plotly_dark" if theme != "Light" else "plotly_white",
-            paper_bgcolor="#111827",
-            plot_bgcolor="#111827",
-            font_color="white"
-        )
-
-        st.plotly_chart(
-            fig_month,
-            use_container_width=True
-        )
+        fig = px.bar(month_df, x="month", y="count", text_auto=True, title="📈 สถิติคดีรายเดือน",
+                     color_discrete_sequence=["#00AEEF"])
+        fig.update_layout(**PLOTLY_LAYOUT, height=380)
+        fig.update_traces(marker_line_width=0, marker_cornerradius=4)
+        st.plotly_chart(fig, use_container_width=True)
 
     with g2:
+        fig2 = px.pie(charge_df, names="charge", values="count", title="🥧 สัดส่วนข้อหา",
+                      color_discrete_sequence=["#00AEEF","#0076B6","#003B6F","#F5A623","#2EC4B6"])
+        fig2.update_layout(**PLOTLY_LAYOUT, height=380)
+        fig2.update_traces(textfont_size=13)
+        st.plotly_chart(fig2, use_container_width=True)
 
-        fig_pie.update_layout(
-            height=420,
-            template="plotly_dark" if theme != "Light" else "plotly_white",
-            paper_bgcolor="#111827",
-            font_color="white"
-        )
-
-        st.plotly_chart(
-            fig_pie,
-            use_container_width=True
-        )
-
-    # ---------- ROW 2 ----------
     g3, g4 = st.columns(2)
 
     with g3:
-
-        fig_charge.update_layout(
-            height=420,
-            template="plotly_dark" if theme != "Light" else "plotly_white",
-            paper_bgcolor="#111827",
-            plot_bgcolor="#111827",
-            font_color="white"
-        )
-
-        st.plotly_chart(
-            fig_charge,
-            use_container_width=True
-        )
+        fig3 = px.bar(charge_df, x="charge", y="count", color="charge", title="🚨 สถิติแยกตามข้อหา",
+                      color_discrete_sequence=["#00AEEF","#0076B6","#003B6F","#F5A623","#2EC4B6"])
+        fig3.update_layout(**PLOTLY_LAYOUT, height=340, showlegend=False)
+        fig3.update_traces(marker_line_width=0, marker_cornerradius=4)
+        st.plotly_chart(fig3, use_container_width=True)
 
     with g4:
+        heat = df.groupby("hour").size().reset_index(name="count")
+        fig4 = px.density_heatmap(heat, x="hour", y="count", title="🔥 Heatmap เวลาเกิดเหตุ",
+                                  color_continuous_scale=["#EBF4FB","#00AEEF","#003B6F"])
+        fig4.update_layout(**PLOTLY_LAYOUT, height=340)
+        st.plotly_chart(fig4, use_container_width=True)
 
-        fig_heat.update_layout(
-            height=420,
-            template="plotly_dark" if theme != "Light" else "plotly_white",
-            paper_bgcolor="#111827",
-            plot_bgcolor="#111827",
-            font_color="white"
-        )
+    # Realtime line
+    rt = pd.DataFrame({
+        "เวลา": pd.date_range(start=datetime.datetime.now(), periods=20, freq="min"),
+        "คดี":  np.random.randint(1, 10, 20),
+    })
+    fig5 = px.line(rt, x="เวลา", y="คดี", title="📡 Realtime Monitoring",
+                   color_discrete_sequence=["#00AEEF"])
+    fig5.update_layout(**PLOTLY_LAYOUT, height=300)
+    fig5.update_traces(line_width=2.5)
+    st.plotly_chart(fig5, use_container_width=True)
 
-        st.plotly_chart(
-            fig_heat,
-            use_container_width=True
-        )
-
-    # ---------- ROW 3 ----------
-
-    fig_real.update_layout(
-        height=350,
-        template="plotly_dark" if theme != "Light" else "plotly_white",
-        paper_bgcolor="#111827",
-        plot_bgcolor="#111827",
-        font_color="white"
-    )
-
-    st.plotly_chart(
-        fig_real,
-        use_container_width=True
-    )
-
-    # ---------- DOCUMENT ----------
-
-    if fig_doc is not None:
-
-        fig_doc.update_layout(
-            height=350,
-            template="plotly_dark" if theme != "Light" else "plotly_white",
-            paper_bgcolor="#111827",
-            plot_bgcolor="#111827",
-            font_color="white"
-        )
-
-        st.plotly_chart(
-            fig_doc,
-            use_container_width=True
-        )
-
-    #=================================================
-    # AUTO REFRESH
-    # =====================================================
-
-    st.caption("ระบบ Realtime Refresh ทุกครั้งที่ Reload")
-
-# =====================ระบบจัดการเอกสาร=================
+    # ── Document type cards ──
     st.markdown("### 📄 ประเภทเอกสาร")
-
-    doc_types_meta = {
-        "หนังสือราชการ":  "📋",
-        "บันทึกข้อความ":  "📝",
-        "คำสั่ง":          "📌",
-        "ประกาศ":          "📢",
-        "รายงาน":          "📊",
-        "หนังสือรับ":      "📥",
-        "หนังสือส่ง":      "📤",
+    DOC_META = {
+        "หนังสือราชการ": "📋","บันทึกข้อความ": "📝","คำสั่ง": "📌",
+        "ประกาศ": "📢","รายงาน": "📊","หนังสือรับ": "📥","หนังสือส่ง": "📤",
     }
-
-    doc_records = st.session_state.get("doc_records", [])
-
-    # นับแยกตามประเภท
-    type_counts = {t: 0 for t in doc_types_meta}
+    type_counts = {t: 0 for t in DOC_META}
     for d in doc_records:
-        t = d.get("doc_type", "")
+        t = d.get("doc_type","")
         if t in type_counts:
             type_counts[t] += 1
 
-    # แถวการ์ด 4 ใบ
-    dc1, dc2, dc3, dc4 = st.columns(4)
-    doc_cols_row1 = [dc1, dc2, dc3, dc4]
+    dc = st.columns(4)
+    for idx, (dtype, icon) in enumerate(DOC_META.items()):
+        dc[idx % 4].markdown(
+            f'<div class="metric-card">'
+            f'<div class="metric-icon">{icon}</div>'
+            f'<div class="metric-no">{type_counts[dtype]}</div>'
+            f'<div class="metric-text">{dtype}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-    dc5, dc6, dc7, dc8 = st.columns(4)
-    doc_cols_row2 = [dc5, dc6, dc7, dc8]
-
-    all_doc_cols = doc_cols_row1 + doc_cols_row2
-    doc_type_list = list(doc_types_meta.items())
-
-    for idx, (dtype, icon) in enumerate(doc_type_list):
-        col = all_doc_cols[idx]
-        count = type_counts.get(dtype, 0)
-        col.markdown(f"""
-        <div class='metric-card' style='cursor:pointer;'>
-            <div class='metric-icon'>{icon}</div>
-            <div class='metric-no'>{count}</div>
-            <div class='metric-text'>{dtype}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ปุ่มใหญ่ "จัดการเอกสารทั้งหมด"
-    st.write("")
-    if st.button("📂 จัดการเอกสารทั้งหมด", use_container_width=True, key="btn_goto_docs"):
-        st.session_state.doc_type_preselect = None
-        st.session_state.page = "documents"
-        st.rerun()
-    
-# =========================================================
-# SETTINGS PAGE (PRO VERSION)
-# =========================================================
-if st.session_state.get("page") == "settings":
-    st.markdown("## ⚙️ ตั้งค่าระบบระดับโปร")
-
+# =================================================================
+# ─── SETTINGS ───────────────────────────────────────────────────
+# =================================================================
+if st.session_state.page == "settings":
+    st.markdown('<div class="main-header">⚙️&nbsp; ตั้งค่าระบบ</div>', unsafe_allow_html=True)
     s = st.session_state.settings
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🏢 หน่วยงาน",
-        "🎨 ธีมระบบ",
-        "💾 สำรองข้อมูล",
-        "⚙️ ขั้นสูง"
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(["🏢 หน่วยงาน","🎨 ธีม","💾 สำรองข้อมูล","⚙️ ขั้นสูง"])
 
-    # ---------------- TAB 1 ----------------
     with tab1:
-
         c1, c2 = st.columns(2)
-
         with c1:
-            s["username"] = st.text_input(
-                "ชื่อผู้ใช้งาน",
-                s.get("username", "เจ้าหน้าที่ตำรวจ")
-            )
-
-            s["station"] = st.text_input(
-                "ชื่อสถานีตำรวจ",
-                s.get("station", "สภ.ตระการพืชผล")
-            )
-
-            s["province"] = st.text_input(
-                "จังหวัด",
-                s.get("province", "อุบลราชธานี")
-            )
-
+            s["station"]   = st.text_input("ชื่อสถานีตำรวจ",  s.get("station","สภ.ตระการพืชผล"))
+            s["province"]  = st.text_input("จังหวัด",          s.get("province","อุบลราชธานี"))
+            s["commander"] = st.text_input("ชื่อผู้กำกับ",      s.get("commander",""))
         with c2:
-            s["commander"] = st.text_input(
-                "ชื่อผู้กำกับ",
-                s.get("commander", "")
-            )
-
-            s["deputy"] = st.text_input(
-                "รองผู้กำกับ",
-                s.get("deputy", "")
-            )
-
-            s["inspector"] = st.text_input(
-                "สารวัตร",
-                s.get("inspector", "")
-            )
-
-        st.write("---")
-
-        logo_file = st.file_uploader(
-            "อัปโหลดโลโก้",
-            type=["png", "jpg", "jpeg"]
-        )
-
+            s["deputy"]    = st.text_input("รองผู้กำกับ",       s.get("deputy",""))
+            s["inspector"] = st.text_input("สารวัตร",           s.get("inspector",""))
+        logo_file = st.file_uploader("อัปโหลดโลโก้", type=["png","jpg","jpeg"])
         if logo_file:
-            logo_bytes = logo_file.read()
-            s["logo"] = base64.b64encode(logo_bytes).decode()
-            st.image(logo_file, width=140)
+            s["logo"] = base64.b64encode(logo_file.read()).decode()
+            st.success("อัปโหลดโลโก้แล้ว")
 
-    # ---------------- TAB 2 ----------------
     with tab2:
+        s["theme"] = st.selectbox("โหมดระบบ", ["light","dark"], index=0 if s.get("theme","light")=="light" else 1)
 
-        c1, c2 = st.columns(2)
-
-        with c1:
-            s["bg_color"] = st.color_picker(
-                "สีพื้นหลัง",
-                s.get("bg_color", "#eef4ff")
-            )
-
-            s["button_color"] = st.color_picker(
-                "สีปุ่ม",
-                s.get("button_color", "#123a8f")
-            )
-
-        with c2:
-            s["header_color"] = st.color_picker(
-                "สีหัวข้อ",
-                s.get("header_color", "#0b1f4e")
-            )
-
-            theme_list = ["Light", "Dark", "Blue Pro"]
-
-            current_theme = s.get("theme", "Light")
-            if current_theme not in theme_list:
-                current_theme = "Light"
-
-            s["theme"] = st.selectbox(
-                "โหมดระบบ",
-                theme_list,
-                index=theme_list.index(current_theme)
-            )
-
-    # ---------------- TAB 3 ----------------
     with tab3:
-
-        records = st.session_state.get("records", [])
-
-        st.info(f"ข้อมูลทั้งหมด {len(records)} รายการ")
-
-        json_data = json.dumps(
-            records,
-            ensure_ascii=False,
-            indent=2,
-            default=str
-        )
-
-        st.download_button(
-            "📥 ดาวน์โหลด Backup",
-            data=json_data,
-            file_name="backup_records.json",
-            mime="application/json"
-        )
-
-        up = st.file_uploader(
-            "📤 นำเข้าข้อมูล",
-            type=["json"],
-            key="restore_file"
-        )
-
+        recs = st.session_state.get("records",[])
+        st.info(f"ข้อมูลทั้งหมด {len(recs)} รายการ")
+        st.download_button("📥 ดาวน์โหลด Backup",
+                           data=json.dumps(recs, ensure_ascii=False, indent=2, default=str),
+                           file_name="backup_records.json", mime="application/json")
+        up = st.file_uploader("📤 นำเข้าข้อมูล", type=["json"], key="restore_file")
         if up:
             try:
-                restore = json.load(up)
-                st.session_state.records = restore
+                st.session_state.records = json.load(up)
                 st.success("นำเข้าข้อมูลสำเร็จ")
-            except:
+            except Exception:
                 st.error("ไฟล์ไม่ถูกต้อง")
 
-    # ---------------- TAB 4 ----------------
     with tab4:
-
-        st.subheader("📝 ตรวจสอบ / แก้ไข พฤติการณ์จับกุม")
-
-        f = st.session_state.get("form", {})
-
-        auto_text = f"""ตามวันเวลาที่เกิดเหตุ เจ้าหน้าที่ตำรวจชุดจับกุมขณะปฏิบัติหน้าที่ตั้งจุดตรวจบริเวณ {f.get('arrest_place','')}
-พบ {f.get('name','')} ขับขี่{f.get('vehicle_type','')} ยี่ห้อ {f.get('vehicle_brand','')}
-รุ่น {f.get('vehicle_model','')} สี {f.get('vehicle_color','')}
-หมายเลขทะเบียน {f.get('vehicle_plate','')}
-
-จากการตรวจสอบพบของกลาง {f.get('seized_item','')}
-
-จึงแจ้งข้อกล่าวหาว่า {f.get('charge','')}
-และนำตัวส่งพนักงานสอบสวนดำเนินคดีตามกฎหมายต่อไป"""
-
-        behavior = st.text_area(
-            "ข้อความพฤติการณ์จับกุม",
-            value=f.get("behavior_text", auto_text),
-            height=300
+        f = st.session_state.get("form",{})
+        auto_text = (
+            f"ตามวันเวลาที่เกิดเหตุ เจ้าหน้าที่ตำรวจชุดจับกุมขณะปฏิบัติหน้าที่\n"
+            f"พบ {f.get('name','')} ขับขี่{f.get('vehicle_type','')} ยี่ห้อ {f.get('vehicle_brand','')}\n"
+            f"หมายเลขทะเบียน {f.get('vehicle_plate','')}\n"
+            f"จากการตรวจสอบพบ {f.get('seized_item','')}\n"
+            f"จึงแจ้งข้อกล่าวหา {f.get('charge','')}"
         )
-
+        behavior = st.text_area("พฤติการณ์จับกุม", value=f.get("behavior_text", auto_text), height=250)
         st.session_state.form["behavior_text"] = behavior
-
-        st.write("---")
-
-        s["auto_save"] = st.toggle(
-            "💾 บันทึกอัตโนมัติ",
-            value=s.get("auto_save", True)
-        )
-
-        s["thai_number"] = st.toggle(
-            "🔢 ใช้เลขไทย",
-            value=s.get("thai_number", False)
-        )
-
-        st.write("---")
-
+        s["auto_save"]   = st.toggle("💾 บันทึกอัตโนมัติ", value=s.get("auto_save", True))
+        s["thai_number"] = st.toggle("🔢 ใช้เลขไทย",       value=s.get("thai_number", False))
+        st.write("")
         c3, c4 = st.columns(2)
-
         with c3:
             if st.button("🗑️ ล้างข้อมูลทั้งหมด", use_container_width=True):
                 st.session_state.records = []
                 st.success("ล้างข้อมูลแล้ว")
-
         with c4:
             if st.button("🚪 รีเซ็ตระบบ", use_container_width=True):
                 for k in list(st.session_state.keys()):
@@ -1242,237 +948,84 @@ if st.session_state.get("page") == "settings":
                 st.rerun()
 
     st.write("")
-
     c1, c2 = st.columns(2)
-
     with c1:
         if st.button("💾 บันทึกการตั้งค่า", use_container_width=True):
             st.session_state.settings = s
             st.success("บันทึกแล้ว")
-            st.rerun()
-
     with c2:
         if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
             st.session_state.page = "dashboard"
             st.rerun()
-# =========================================================
-# SEARCH PAGE
-# =========================================================
-if st.session_state.get("page") == "search":
 
-    st.markdown("## 🔎 ค้นหาเอกสาร")
 
-    records = st.session_state.get("records", [])
-
-    c1, c2 = st.columns([3, 1])
-
-    keyword = c1.text_input(
-        "ค้นหาชื่อ / เลขบัตร / ทะเบียนรถ"
-    )
-
-    mode = c2.selectbox(
-        "ประเภท",
-        ["ทั้งหมด", "ชื่อ", "เลขบัตร", "ทะเบียน"]
-    )
+# =================================================================
+# ─── SEARCH ─────────────────────────────────────────────────────
+# =================================================================
+if st.session_state.page == "search":
+    st.markdown('<div class="main-header">🔎&nbsp; ค้นหาเอกสาร</div>', unsafe_allow_html=True)
+    recs = st.session_state.get("records",[])
+    c1, c2 = st.columns([3,1])
+    keyword = c1.text_input("ค้นหาชื่อ / เลขบัตร / ทะเบียนรถ")
+    mode    = c2.selectbox("ประเภท", ["ทั้งหมด","ชื่อ","เลขบัตร","ทะเบียน"])
 
     result = []
-
-    for r in records:
-
-        name = str(r.get("name", ""))
-        cid = str(r.get("sub_id", ""))
-        plate = str(r.get("vehicle_plate", ""))
-
+    for r in recs:
+        name  = str(r.get("name",""))
+        cid   = str(r.get("sub_id",""))
+        plate = str(r.get("vehicle_plate",""))
         ok = True
-
         if keyword:
             kw = keyword.lower()
-
-            if mode == "ชื่อ":
-                ok = kw in name.lower()
-
-            elif mode == "เลขบัตร":
-                ok = kw in cid.lower()
-
-            elif mode == "ทะเบียน":
-                ok = kw in plate.lower()
-
-            else:
-                ok = (
-                    kw in name.lower()
-                    or kw in cid.lower()
-                    or kw in plate.lower()
-                )
-
+            if mode == "ชื่อ":    ok = kw in name.lower()
+            elif mode == "เลขบัตร": ok = kw in cid.lower()
+            elif mode == "ทะเบียน": ok = kw in plate.lower()
+            else: ok = kw in name.lower() or kw in cid.lower() or kw in plate.lower()
         if ok:
             result.append(r)
 
     st.info(f"พบ {len(result)} รายการ")
-
-    if result:
-
-        for i, r in enumerate(result):
-
-            with st.expander(
-                f"📄 {r.get('name','-')} | {r.get('vehicle_plate','-')}"
-            ):
-
-                st.write(f"เลขบัตร: {r.get('sub_id','-')}")
-                st.write(f"วันที่: {r.get('report_date','-')}")
-                st.write(f"ข้อหา: {r.get('charge','-')}")
-
-                c1, c2 = st.columns(2)
-
-                with c1:
-                    if st.button("🗑️ ลบ", key=f"del_{i}"):
-
-                        st.session_state.records.remove(r)
-                        st.success("ลบแล้ว")
-                        st.rerun()
-
-                with c2:
-                    if st.button("📋 โหลดข้อมูลนี้", key=f"load_{i}"):
-
-                        st.session_state.form = r
-                        st.session_state.page = "form"
-                        st.session_state.tab = 3
-                        st.rerun()
-
-    else:
-        st.warning("ไม่พบข้อมูล")
+    for i, r in enumerate(result):
+        with st.expander(f"📄 {r.get('name','-')} | {r.get('vehicle_plate','-')}"):
+            st.write(f"เลขบัตร: {r.get('sub_id','-')}")
+            st.write(f"วันที่: {r.get('report_date','-')}")
+            st.write(f"ข้อหา: {r.get('charge','-')}")
+            c1, c2 = st.columns(2)
+            if c1.button("🗑️ ลบ", key=f"del_{i}"):
+                st.session_state.records.remove(r)
+                st.rerun()
+            if c2.button("📋 โหลด", key=f"load_{i}"):
+                st.session_state.form = r
+                st.session_state.page = "form"
+                st.session_state.tab  = 3
+                st.rerun()
 
     st.write("")
-
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = "dashboard"
         st.rerun()
 
+
 # =================================================================
-# SIDEBAR
+# ─── DOCUMENTS ──────────────────────────────────────────────────
 # =================================================================
-with st.sidebar:
-    # ================= LOGO =================
-    if logo_base64:
-        st.markdown(
-            f"""
-            <div style="text-align:center; margin-bottom:10px;">
-                <img src="data:image/png;base64,{logo_base64}"
-                     width="120"
-                     style="
-                        border-radius:20px;
-                        padding:10px;
-                        background:rgba(255,255,255,0.08);
-                     ">
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.markdown(
-        """
-        <div style="
-            text-align:center;
-            font-size:25px;
-            font-weight:800;
-            margin-bottom:20px;
-            color:white;
-        ">
-             ระบบบันทึกจับกุม
-            งานจราจร
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.info(
-        f"""
-👮 ผู้ใช้งาน:
-{st.session_state.get('user_full_name','เจ้าหน้าที่')}
-
-🏢 สังกัด:
-สภ.ตระการพืชผล
-"""
-    )
-
-    if st.button("🏠 หน้าแรก", use_container_width=True):
-        st.session_state.page = "dashboard"
-        st.rerun()
-
-    if st.button("📋 บันทึกจับกุม", use_container_width=True):
-        st.session_state.page = "form"
-        st.rerun()
-
-    if st.button("🔎 ค้นหาเอกสาร", use_container_width=True):
-        st.session_state.page = "search"
-        st.rerun()
-    # ================= จัดการเอกสาร DROPDOWN =================
-    with st.expander("📂 จัดการเอกสาร", expanded=False):
-
-        doc_types = {
-            "📋 หนังสือราชการ": "หนังสือราชการ",
-            "📝 บันทึกข้อความ": "บันทึกข้อความ",
-            "📌 คำสั่ง": "คำสั่ง",
-            "📢 ประกาศ": "ประกาศ",
-            "📊 รายงาน": "รายงาน",
-            "📥 หนังสือรับ": "หนังสือรับ",
-            "📤 หนังสือส่ง": "หนังสือส่ง"
-        }
-
-        for label, dtype in doc_types.items():
-
-            if st.button(label, use_container_width=True, key=f"doc_{dtype}"):
-
-                st.session_state.doc_type_preselect = dtype
-                st.session_state.page = "documents"
-                st.session_state.doc_sub_page = "create"
-
-                st.rerun()
-                
-    if st.button("⚙️ ตั้งค่า", use_container_width=True):
-        st.session_state.page = "settings"
-        st.rerun()
-
-    if st.button("🚪 ออกจากระบบ", use_container_width=True):
-        st.session_state.confirm_logout = True
-
-if st.session_state.get("confirm_logout"):
-    st.warning("⚠️ ต้องการออกจากระบบใช่หรือไม่? ข้อมูลที่ยังไม่บันทึกจะหายไป")
-    col_y, col_n = st.columns(2)
-    if col_y.button("✅ ยืนยัน"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-    if col_n.button("❌ ยกเลิก"):
-        st.session_state.confirm_logout = False
-        st.rerun()
-#===================ระบบจัดการเอกสาร=======================
-
-if st.session_state.get("page") == "documents":
-
-    # ── init ──────────────────────────────────────────────
+if st.session_state.page == "documents":
     if "doc_records" not in st.session_state:
         st.session_state.doc_records = []
-
     if "doc_running_numbers" not in st.session_state:
         st.session_state.doc_running_numbers = {}
 
     DOC_TYPES = {
-        "หนังสือราชการ": {"prefix": "ที่",    "icon": "📋"},
-        "บันทึกข้อความ": {"prefix": "บันทึก", "icon": "📝"},
-        "คำสั่ง":         {"prefix": "คำสั่ง", "icon": "📌"},
-        "ประกาศ":         {"prefix": "ประกาศ", "icon": "📢"},
-        "รายงาน":         {"prefix": "รายงาน", "icon": "📊"},
-        "หนังสือรับ":     {"prefix": "รับที่",  "icon": "📥"},
-        "หนังสือส่ง":     {"prefix": "ส่งที่",  "icon": "📤"},
+        "หนังสือราชการ": {"prefix":"ที่",    "icon":"📋"},
+        "บันทึกข้อความ": {"prefix":"บันทึก", "icon":"📝"},
+        "คำสั่ง":         {"prefix":"คำสั่ง", "icon":"📌"},
+        "ประกาศ":         {"prefix":"ประกาศ", "icon":"📢"},
+        "รายงาน":         {"prefix":"รายงาน", "icon":"📊"},
+        "หนังสือรับ":     {"prefix":"รับที่",  "icon":"📥"},
+        "หนังสือส่ง":     {"prefix":"ส่งที่",  "icon":"📤"},
     }
 
-    OFFICERS = [
-        "ร.ต.อ.สมคิด เชื้อเวียง","ร.ต.อ.ชัยพร ชอบงาม","ร.ต.ท.พจน์ ปาสาจันทร์",
-        "ร.ต.ต.ประจวบ ศรีบุระ","ส.ต.อ.ธีระวัฒน์ แก่นสาร","ส.ต.อ.ณรงค์ฤทธิ์ เหล่าดี",
-        "ส.ต.อ.วิชชากร วงษ์โท","ด.ต.ยุทธพงษ์ ชาดแดง","จ.ส.ต.วัชระ จันสุตะ",
-        "ส.ต.ท.วชิรวิชญ์ นันทรักษ์","ส.ต.ท.วิศรุต จันทร์สิงห์","ส.ต.ท.เอกพจน์ อินผล",
-        "ส.ต.ต.อดิศร ศุภนิกร"
-    ]
+    DOC_OFFICERS = OFFICERS.copy()
 
     def get_next_doc_number(doc_type, year_th):
         key = f"{doc_type}_{year_th}"
@@ -1485,395 +1038,333 @@ if st.session_state.get("page") == "documents":
         n = st.session_state.doc_running_numbers.get(key, 0) + 1
         return f"0018.13/{n:04d}/{year_th}"
 
-    # ── header ────────────────────────────────────────────
-    st.markdown("""
-    <div class="main-header">
-        📂 ระบบจัดการเอกสารราชการ
-    </div>
-    <div class="header-line"></div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="main-header">📂&nbsp; ระบบจัดการเอกสารราชการ</div>', unsafe_allow_html=True)
 
-    # ── sub navigation ────────────────────────────────────
     sub_page = st.session_state.get("doc_sub_page", "create")
 
-    sn1, sn2, sn3 = st.columns(3)
-    if sn1.button("➕ สร้างเอกสาร",    use_container_width=True, key="snav1"):
-        st.session_state.doc_sub_page = "create";  st.rerun()
-    if sn2.button("🔎 ค้นหาเอกสาร",   use_container_width=True, key="snav2"):
-        st.session_state.doc_sub_page = "search";  st.rerun()
-    if sn3.button("📬 ทะเบียนรับ-ส่ง", use_container_width=True, key="snav3"):
-        st.session_state.doc_sub_page = "register"; st.rerun()
-
-    st.write("---")
-
-    # ═══════════════════════════════════════════════════════
-    # SUB: สร้างเอกสาร
-    # ═══════════════════════════════════════════════════════
+    # ── CREATE ──
     if sub_page == "create":
 
-        # ================= รับค่าจาก Sidebar =================
-        preselect = st.session_state.get("doc_type_preselect", "หนังสือราชการ")
+        if "doc_type_preselect" not in st.session_state or st.session_state.get("doc_type_show_picker", True):
+            st.markdown("## 📂 เลือกประเภทเอกสาร")
+            st.write("")
+            cols = st.columns(4)
+            for idx, (dtype, meta) in enumerate(DOC_TYPES.items()):
+                col = cols[idx % 4]
+                if col.button(
+                    f"{meta['icon']}  {dtype}",
+                    use_container_width=True,
+                    key=f"pick_doc_{dtype}"
+                ):
+                    st.session_state["doc_type_preselect"] = dtype
+                    st.session_state["doc_type_show_picker"] = False
+                    st.rerun()
 
-        if preselect not in DOC_TYPES:
-            preselect = "หนังสือราชการ"
+        else:
+            preselect = st.session_state.get("doc_type_preselect", "หนังสือราชการ")
+            if preselect not in DOC_TYPES:
+                preselect = "หนังสือราชการ"
+            meta    = DOC_TYPES[preselect]
+            year_th = datetime.date.today().year + 543
 
-        dtype = preselect
-        meta = DOC_TYPES[dtype]
-        year_th = datetime.date.today().year + 543
+            if st.button("⬅️ เปลี่ยนประเภทเอกสาร", key="btn_change_type"):
+                st.session_state["doc_type_show_picker"] = True
+                st.rerun()
 
-        st.markdown(f"## {meta['icon']} {dtype}")
+            st.markdown(f"## {meta['icon']} {preselect}")
 
-        ca, cb = st.columns([2, 1])
-
-        with ca:
-            auto_no = st.toggle("ออกเลขอัตโนมัติ", value=True, key="tog_auto_no")
-            if auto_no:
-                doc_no = get_preview_number(dtype, year_th)
-                st.info(f"เลขที่จะออก: **{doc_no}**")
-            else:
-                doc_no = st.text_input("เลขที่เอกสาร (กรอกเอง)",
-                                       placeholder="0018.13/0001/2568",
-                                       key="doc_manual_no")
-
-        with cb:
-            doc_date    = st.date_input("วันที่เอกสาร", datetime.date.today(), key="doc_date")
-            doc_urgency = st.selectbox("ชั้นความเร็ว",
-                                       ["ปกติ","ด่วน","ด่วนมาก","ด่วนที่สุด"],
-                                       key="doc_urgency")
-
-        st.write("---")
-
-        cc, cd = st.columns(2)
-        with cc:
-            doc_to      = st.text_input("เรียน / ถึง", key="doc_to",
-                                        placeholder="เช่น ผู้กำกับการ สภ.ตระการพืชผล")
-            doc_from    = st.text_input("จาก",
-                                        value=st.session_state.get("user_full_name","เจ้าหน้าที่"),
-                                        key="doc_from")
-            doc_ref     = st.text_input("อ้างถึง (ถ้ามี)", key="doc_ref")
-        with cd:
-            doc_subject = st.text_input("เรื่อง", key="doc_subject")
-            doc_attach  = st.text_input("สิ่งที่ส่งมาด้วย", key="doc_attach")
-
-        doc_body = st.text_area("เนื้อหา", height=220, key="doc_body",
-                                placeholder="พิมพ์เนื้อหาที่นี่...")
-
-        st.write("---")
-        st.caption("✍️ ผู้ลงนาม")
-        ce, cf, cg = st.columns(3)
-        signer     = ce.selectbox("ผู้ลงนาม", OFFICERS, key="doc_signer")
-        signer_pos = cf.text_input("ตำแหน่ง", key="doc_signer_pos",
-                                   placeholder="เช่น ผกก.สภ.ตระการพืชผล")
-        doc_dept   = cg.text_input("หน่วยงาน", value="สภ.ตระการพืชผล", key="doc_dept")
-
-        st.write("---")
-
-        b1, b2, b3 = st.columns(3)
-
-        with b1:
-            if st.button("💾 บันทึกเอกสาร", use_container_width=True, key="btn_save_doc"):
-                if not doc_subject:
-                    st.warning("⚠️ กรุณากรอกเรื่อง")
+            ca, cb = st.columns([2,1])
+            with ca:
+                auto_no = st.toggle("ออกเลขอัตโนมัติ", value=True, key="tog_auto_no")
+                if auto_no:
+                    doc_no = get_preview_number(preselect, year_th)
+                    st.info(f"เลขที่จะออก: **{doc_no}**")
                 else:
-                    final_no = (get_next_doc_number(dtype, year_th)
-                                if auto_no else doc_no)
-                    new_doc = {
-                        "doc_number":  final_no,
-                        "doc_type":    dtype,
-                        "doc_date":    str(doc_date),
-                        "doc_subject": doc_subject,
-                        "doc_to":      doc_to,
-                        "doc_from":    doc_from,
-                        "doc_ref":     doc_ref,
-                        "doc_attach":  doc_attach,
-                        "doc_body":    doc_body,
-                        "doc_urgency": doc_urgency,
-                        "signer":      signer,
-                        "signer_pos":  signer_pos,
-                        "doc_dept":    doc_dept,
-                        "created_by":  st.session_state.get("user_full_name","-"),
-                        "created_at":  str(datetime.datetime.now()),
-                        "status":      "หนังสือรับ" if dtype == "หนังสือรับ" else "หนังสือส่ง"
-                    }
-                    st.session_state.doc_records.append(new_doc)
-                    st.success(f"✅ บันทึกแล้ว เลขที่ {final_no}")
+                    doc_no = st.text_input("เลขที่เอกสาร", placeholder="0018.13/0001/2568", key="doc_manual_no")
+            with cb:
+                doc_date    = st.date_input("วันที่เอกสาร", datetime.date.today(), key="doc_date")
+                doc_urgency = st.selectbox("ชั้นความเร็ว", ["ปกติ","ด่วน","ด่วนมาก","ด่วนที่สุด"], key="doc_urgency")
 
-        with b2:
-            if st.button("📄 Export Word", use_container_width=True, key="btn_exp_word"):
-                st.info("⏳ รอเชื่อม template (เพิ่มในขั้นตอนถัดไป)")
+            st.write("---")
+            cc, cd = st.columns(2)
+            with cc:
+                doc_to   = st.text_input("เรียน / ถึง", key="doc_to", placeholder="เช่น ผู้กำกับการ สภ.ตระการพืชผล")
+                doc_from = st.text_input("จาก", value=st.session_state.get("user_full_name","เจ้าหน้าที่"), key="doc_from")
+                doc_ref  = st.text_input("อ้างถึง (ถ้ามี)", key="doc_ref")
+            with cd:
+                doc_subject = st.text_input("เรื่อง", key="doc_subject")
+                doc_attach  = st.text_input("สิ่งที่ส่งมาด้วย", key="doc_attach")
 
-        with b3:
-            if st.button("🖨️ Export PDF", use_container_width=True, key="btn_exp_pdf"):
-                st.info("⏳ รอเชื่อม template PDF")
+            doc_body = st.text_area("เนื้อหา", height=200, key="doc_body", placeholder="พิมพ์เนื้อหาที่นี่...")
+            st.write("---")
+            st.caption("✍️ ผู้ลงนาม")
+            ce, cf, cg = st.columns(3)
+            signer     = ce.selectbox("ผู้ลงนาม", DOC_OFFICERS, key="doc_signer")
+            signer_pos = cf.text_input("ตำแหน่ง", key="doc_signer_pos", placeholder="เช่น ผกก.สภ.ตระการพืชผล")
+            doc_dept   = cg.text_input("หน่วยงาน", value="สภ.ตระการพืชผล", key="doc_dept")
+            st.write("---")
 
-    # ═══════════════════════════════════════════════════════
-    # SUB: ค้นหาเอกสาร
-    # ═══════════════════════════════════════════════════════
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("💾 บันทึกเอกสาร", use_container_width=True, key="btn_save_doc"):
+                    if not doc_subject:
+                        st.warning("⚠️ กรุณากรอกเรื่อง")
+                    else:
+                        final_no = get_next_doc_number(preselect, year_th) if auto_no else doc_no
+                        st.session_state.doc_records.append({
+                            "doc_number": final_no, "doc_type": preselect,
+                            "doc_date": str(doc_date), "doc_subject": doc_subject,
+                            "doc_to": doc_to, "doc_from": doc_from, "doc_ref": doc_ref,
+                            "doc_attach": doc_attach, "doc_body": doc_body,
+                            "doc_urgency": doc_urgency, "signer": signer,
+                            "signer_pos": signer_pos, "doc_dept": doc_dept,
+                            "created_by": st.session_state.get("user_full_name","-"),
+                            "created_at": str(datetime.datetime.now()),
+                            "status": "หนังสือรับ" if preselect == "หนังสือรับ" else "หนังสือส่ง",
+                        })
+                        st.success(f"✅ บันทึกแล้ว เลขที่ {final_no}")
+            with b2:
+                st.button("📄 Export Word", use_container_width=True, key="btn_exp_word", disabled=True)
+
+ # ── SEARCH ──
     elif sub_page == "search":
-
         st.markdown("### 🔎 ค้นหาเอกสาร")
-
-        doc_records = st.session_state.get("doc_records", [])
-
-        sc1, sc2, sc3 = st.columns([3, 1, 1])
-        kw          = sc1.text_input("ค้นหา เลขที่ / เรื่อง / ถึง", key="srch_kw")
-        ftype       = sc2.selectbox("ประเภท", ["ทั้งหมด"] + list(DOC_TYPES.keys()), key="srch_type")
-        fyear       = sc3.selectbox("ปี พ.ศ.",
-                                    ["ทั้งหมด", str(datetime.date.today().year + 543)],
-                                    key="srch_year")
+        drecs = st.session_state.get("doc_records",[])
+        sc1, sc2, sc3 = st.columns([3,1,1])
+        kw    = sc1.text_input("ค้นหา เลขที่ / เรื่อง / ถึง", key="srch_kw")
+        ftype = sc2.selectbox("ประเภท", ["ทั้งหมด"] + list(DOC_TYPES.keys()), key="srch_type")
+        fyear = sc3.selectbox("ปี พ.ศ.", ["ทั้งหมด", str(datetime.date.today().year+543)], key="srch_year")
 
         results = [
-            d for d in doc_records
-            if (not kw or kw.lower() in d.get("doc_number","").lower()
-                      or kw.lower() in d.get("doc_subject","").lower()
-                      or kw.lower() in d.get("doc_to","").lower())
+            d for d in drecs
+            if (not kw or any(kw.lower() in str(d.get(f,"")).lower() for f in ["doc_number","doc_subject","doc_to"]))
             and (ftype == "ทั้งหมด" or d.get("doc_type") == ftype)
             and (fyear == "ทั้งหมด" or fyear in d.get("doc_number",""))
         ]
-
         st.info(f"พบ {len(results)} รายการ")
-
         for i, d in enumerate(results):
-            m = DOC_TYPES.get(d.get("doc_type",""), {"icon":"📄"})
+            m = DOC_TYPES.get(d.get("doc_type",""),{"icon":"📄"})
             with st.expander(f"{m['icon']} {d.get('doc_number','-')} | {d.get('doc_subject','-')}"):
                 xa, xb = st.columns(2)
                 xa.write(f"**ประเภท:** {d.get('doc_type','-')}")
                 xa.write(f"**เรียน:** {d.get('doc_to','-')}")
-                xa.write(f"**จาก:** {d.get('doc_from','-')}")
                 xb.write(f"**ชั้นความเร็ว:** {d.get('doc_urgency','-')}")
                 xb.write(f"**ผู้ลงนาม:** {d.get('signer','-')}")
-                xb.write(f"**บันทึกโดย:** {d.get('created_by','-')}")
                 if d.get("doc_body"):
-                    st.text_area("เนื้อหา", value=d["doc_body"], height=80,
-                                 key=f"sbody_{i}", disabled=True)
+                    st.text_area("เนื้อหา", value=d["doc_body"], height=80, key=f"sbody_{i}", disabled=True)
                 if st.button("🗑️ ลบ", key=f"sdel_{i}"):
                     st.session_state.doc_records.remove(d)
                     st.rerun()
 
-    # ═══════════════════════════════════════════════════════
-    # SUB: ทะเบียนรับ-ส่ง
-    # ═══════════════════════════════════════════════════════
+    # ── REGISTER ──
     elif sub_page == "register":
-
         st.markdown("### 📬 ทะเบียนรับ-ส่งเอกสาร")
-
-        doc_records = st.session_state.get("doc_records", [])
-        sent     = [d for d in doc_records if d.get("status") == "หนังสือส่ง"]
-        received = [d for d in doc_records if d.get("status") == "หนังสือรับ"]
-
-        rt1, rt2 = st.tabs([
-            f"📤 ทะเบียนส่ง ({len(sent)})",
-            f"📥 ทะเบียนรับ ({len(received)})"
-        ])
+        drecs    = st.session_state.get("doc_records",[])
+        sent     = [d for d in drecs if d.get("status") == "หนังสือส่ง"]
+        received = [d for d in drecs if d.get("status") == "หนังสือรับ"]
 
         def render_table(docs, label):
             if not docs:
                 st.warning(f"ยังไม่มี{label}")
                 return
-            rows = [{
-                "เลขที่":    d.get("doc_number","-"),
-                "วันที่":    d.get("doc_date","-"),
+            tbl = pd.DataFrame([{
+                "เลขที่":   d.get("doc_number","-"),
+                "วันที่":   d.get("doc_date","-"),
                 "ประเภท":   d.get("doc_type","-"),
-                "เรื่อง":    d.get("doc_subject","-"),
+                "เรื่อง":   d.get("doc_subject","-"),
                 "ถึง/จาก":  d.get("doc_to","-") or d.get("doc_from","-"),
                 "ผู้บันทึก": d.get("created_by","-"),
-            } for d in docs]
-            df = pd.DataFrame(rows)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            csv = df.to_csv(index=False).encode("utf-8-sig")
+            } for d in docs])
+            st.dataframe(tbl, use_container_width=True, hide_index=True)
+            csv = tbl.to_csv(index=False).encode("utf-8-sig")
             st.download_button(f"📥 Export CSV ({label})", csv,
                                file_name=f"register_{label}_{datetime.date.today()}.csv",
                                mime="text/csv", key=f"exp_{label}")
 
+        rt1, rt2 = st.tabs([f"📤 ทะเบียนส่ง ({len(sent)})", f"📥 ทะเบียนรับ ({len(received)})"])
         with rt1: render_table(sent, "หนังสือส่ง")
         with rt2: render_table(received, "หนังสือรับ")
 
-    # ── ปุ่มกลับ ──────────────────────────────────────────
     st.write("---")
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True, key="btn_back_docs"):
         st.session_state.page = "dashboard"
         st.rerun()
 
-# =========================================================
-# FORM PAGE ONLY
-# =========================================================
-if st.session_state.get("page") != "form":
-    st.stop()
 
 # =================================================================
-# 5. SIDEBAR & HEADER
+# ─── SCHEDULE ───────────────────────────────────────────────────
 # =================================================================
-OFFICERS = [
-    "ร.ต.อ.สมคิด เชื้อเวียง","ร.ต.อ.ชัยพร ชอบงาม","ร.ต.ท.พจน์ ปาสาจันทร์",
-    "ร.ต.ต.ประจวบ ศรีบุระ","ส.ต.อ.ธีระวัฒน์ แก่นสาร","ส.ต.อ.ณรงค์ฤทธิ์ เหล่าดี",
-    "ส.ต.อ.วิชชากร วงษ์โท","ด.ต.ยุทธพงษ์ ชาดแดง","จ.ส.ต.วัชระ จันสุตะ",
-    "ส.ต.ท.วชิรวิชญ์ นันทรักษ์","ส.ต.ท.วิศรุต จันทร์สิงห์","ส.ต.ท.เอกพจน์ อินผล",
-    "ส.ต.ต.อดิศร ศุภนิกร"
-]
+if st.session_state.page == "schedule":
+    import calendar
 
-# =================================================================
-# 6. NAVBAR ใหม่ (Krungthai Clean Minimal Pro)
-# =================================================================
+    st.markdown('<div class="main-header">📅&nbsp; ตารางเวรประจำเดือน</div>', unsafe_allow_html=True)
 
-if theme == "Dark":
-    app_bg = "#0b1f4e"
-    text_color = "#ffffff"
-    card_bg = "#111827"
-    input_bg = "#111827"
+    if "schedule_data" not in st.session_state:
+        st.session_state.schedule_data = {}
 
-elif theme == "Blue Pro":
-    app_bg = "linear-gradient(180deg,#0b1f4e,#123a8f)"
-    text_color = "#ffffff"
-    card_bg = "#111827"
-    input_bg = "#111827"
+    SHIFT_TYPES = {
+        "เวรกลางวัน (06:00-18:00)": "🌤️",
+        "เวรกลางคืน (18:00-06:00)": "🌙",
+        "วันหยุด": "🏖️",
+        "ลา": "📝",
+    }
 
-else:
-    app_bg = "linear-gradient(180deg,#f5f9ff,#eef4ff)"
-    text_color = "#111827"
-    card_bg = "#ffffff"
-    input_bg = "#ffffff"
+    # ── เลือกเดือน/ปี ──
+    col_m, col_y = st.columns([2, 2])
+    now = datetime.date.today()
 
-st.markdown(f"""
-<style>
+    month_names = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+                   "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"]
 
-/* ================= พื้นหลัง ================= */
-.stApp {{
-    background:{app_bg} !important;
-}}
+    sel_month = col_m.selectbox("เดือน", list(range(1,13)),
+                                format_func=lambda x: month_names[x],
+                                index=now.month - 1, key="sch_month")
+    sel_year  = col_y.number_input("ปี พ.ศ.", value=now.year + 543,
+                                   min_value=2560, max_value=2580, key="sch_year")
+    sel_year_ad = sel_year - 543
 
-/* ================= BODY ================= */
-.block-container {{
-    max-width: 1100px !important;   /* ปรับให้พอดีกับจอ 1366px */
-    padding-top: 0.5rem;            /* ลด padding ด้านบน */
-    padding-bottom: 1rem;
-    margin: auto;                   /* จัดให้อยู่กลาง */
-}}
-/* ================= ปุ่ม ================= */
-.ktb-nav div.stButton > button {{
-    width:100%;
-    height:44px;
-    border:none !important;
-    border-radius:12px !important;
+    # ── แจ้งเตือนเวรวันนี้ ──
+    today_key = str(now)
+    today_shifts = {
+        o: v for o, v in st.session_state.schedule_data.items()
+        if isinstance(v, dict) and v.get(today_key)
+    }
+    if today_shifts:
+        st.markdown("### 🔔 เวรวันนี้")
+        for officer, days in today_shifts.items():
+            shift = days.get(today_key, "")
+            icon  = SHIFT_TYPES.get(shift, "")
+            st.info(f"{icon} **{officer}** — {shift}")
+    else:
+        st.info(f"🔔 วันนี้ ({date_th(now)}) ยังไม่มีข้อมูลเวร")
 
-    background:#f3f8ff !important;
-    color:#0a4fa8 !important;
+    st.write("---")
 
-    font-size:14px !important;
-    font-weight:700 !important;
+    # ── กำหนดเวรรายวัน ──
+    st.markdown("### ✏️ กำหนดเวร")
 
-    transition:0.18s;
-    box-shadow:none !important;
-}}
+    col_a, col_b, col_c, col_d = st.columns([2, 2, 2, 1])
+    sch_officer = col_a.selectbox("เลือกเจ้าหน้าที่", OFFICERS, key="sch_officer")
+    sch_date    = col_b.date_input("วันที่", value=now, key="sch_date")
+    sch_shift   = col_c.selectbox("ประเภทเวร", list(SHIFT_TYPES.keys()), key="sch_shift")
 
-.ktb-nav div.stButton > button:hover {{
-    background:#0a56c2 !important;
-    color:white !important;
-    transform:translateY(-1px);
-}}
+    if col_d.button("✅ บันทึก", use_container_width=True, key="sch_save"):
+        if sch_officer not in st.session_state.schedule_data:
+            st.session_state.schedule_data[sch_officer] = {}
+        st.session_state.schedule_data[sch_officer][str(sch_date)] = sch_shift
+        st.success(f"บันทึกเวร {sch_officer} วันที่ {date_th(sch_date)} แล้ว")
 
-/* ================= user box ================= */
-.ktb-user {{
-    height:44px;
-    border-radius:12px;
-    background:linear-gradient(135deg,#0a56c2,#0088ff);
-    color:white;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:14px;
-    font-weight:700;
-    padding:0 14px;
-    white-space:nowrap;
-    overflow:hidden;
-}}
+    st.write("---")
 
-/* ================= responsive ================= */
-@media (max-width:768px) {{
+    # ── ตารางรายเดือน ──
+    st.markdown(f"### 📋 ตารางเวรเดือน{month_names[sel_month]} {sel_year}")
 
-.ktb-nav div.stButton > button {{
-    font-size:12px !important;
-    height:40px;
-}}
+    _, num_days = calendar.monthrange(sel_year_ad, sel_month)
+    days_in_month = [datetime.date(sel_year_ad, sel_month, d) for d in range(1, num_days + 1)]
 
-.ktb-user {{
-    font-size:12px;
-    height:40px;
-}}
+    rows = []
+    for officer in OFFICERS:
+        row = {"เจ้าหน้าที่": officer}
+        officer_data = st.session_state.schedule_data.get(officer, {})
+        for d in days_in_month:
+            shift = officer_data.get(str(d), "")
+            icon  = SHIFT_TYPES.get(shift, "")
+            row[str(d.day)] = f"{icon}" if shift else "-"
+        rows.append(row)
 
-}}
+    df_sch = pd.DataFrame(rows)
+    st.dataframe(df_sch, use_container_width=True, hide_index=True)
 
-</style>
-""", unsafe_allow_html=True)
+    st.write("---")
 
-# default tab
-if "tab" not in st.session_state:
-    st.session_state.tab = 0
-    
-# =========================================================
-# NAVBAR
-# =========================================================
-st.markdown('<div class="ktb-nav">', unsafe_allow_html=True)
+    # ── Export ──
+    st.markdown("### 📤 Export ตารางเวร")
 
-c1,c2,c3,c4,c5 = st.columns([1.15,1,1.1,1.1,1.25])
+    ex1, ex2 = st.columns(2)
 
-with c1:
-    if st.button("🏠 หน้าแรก", use_container_width=True):
+    with ex1:
+        csv_rows = []
+        for officer in OFFICERS:
+            officer_data = st.session_state.schedule_data.get(officer, {})
+            for d in days_in_month:
+                shift = officer_data.get(str(d), "")
+                if shift:
+                    csv_rows.append({
+                        "เจ้าหน้าที่": officer,
+                        "วันที่": date_th(d),
+                        "ประเภทเวร": shift,
+                    })
+        if csv_rows:
+            df_export = pd.DataFrame(csv_rows)
+            csv_bytes  = df_export.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "📥 Export CSV",
+                data=csv_bytes,
+                file_name=f"ตารางเวร_{month_names[sel_month]}_{sel_year}.csv",
+                mime="text/csv",
+                key="sch_export_csv"
+            )
+        else:
+            st.warning("ยังไม่มีข้อมูลในเดือนนี้")
+
+    with ex2:
+        if st.button("📄 Export Word", use_container_width=True, key="sch_export_word"):
+            try:
+                from docx import Document as DocxDoc
+                from docx.shared import Pt
+                wdoc = DocxDoc()
+                wdoc.add_heading(f"ตารางเวรเดือน{month_names[sel_month]} {sel_year}", level=1)
+                table = wdoc.add_table(rows=1, cols=num_days + 1)
+                table.style = "Table Grid"
+                hdr = table.rows[0].cells
+                hdr[0].text = "เจ้าหน้าที่"
+                for i, d in enumerate(days_in_month):
+                    hdr[i+1].text = str(d.day)
+                for officer in OFFICERS:
+                    officer_data = st.session_state.schedule_data.get(officer, {})
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = officer
+                    for i, d in enumerate(days_in_month):
+                        shift = officer_data.get(str(d), "")
+                        row_cells[i+1].text = SHIFT_TYPES.get(shift, "") if shift else "-"
+                buf = BytesIO()
+                wdoc.save(buf)
+                buf.seek(0)
+                st.download_button(
+                    "📥 ดาวน์โหลด Word",
+                    data=buf,
+                    file_name=f"ตารางเวร_{month_names[sel_month]}_{sel_year}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="sch_dl_word"
+                )
+            except Exception as e:
+                st.error(f"❌ {e}")
+
+    st.write("---")
+    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True, key="sch_back"):
         st.session_state.page = "dashboard"
         st.rerun()
 
-with c2:
-    if st.button("📍 บันทึก", use_container_width=True):
-        st.session_state.tab = 0
-        st.rerun()
 
-with c3:
-    if st.button("👮 เจ้าหน้าที่", use_container_width=True):
-        st.session_state.tab = 1
-        st.rerun()
+    # =================================================================
+    # ─── FORM PAGE ──────────────────────────────────────────────────
+    # =================================================================
+    if st.session_state.page != "form":
+        st.stop()
 
-with c4:
-    if st.button("👤 ข้อมูลผู้ต้องหา", use_container_width=True):
-        st.session_state.tab = 2
-        st.rerun()
+    # ── NAV ──
+    st.markdown('<div class="main-header">📋&nbsp; บันทึกการจับกุม</div>', unsafe_allow_html=True)
 
-with c5:
-    if st.button("📝 รายละเอียด", use_container_width=True):
-        st.session_state.tab = 3
-        st.rerun()
+    tab_labels = ["📍 ข้อมูลบันทึก","👮 เจ้าหน้าที่","👤 ผู้ต้องหา","📝 รายละเอียด"]
 
-st.markdown("</div>", unsafe_allow_html=True)
+    n1, n2, n3, n4 = st.columns(4)
 
-# =========================================================
-# CONTENT BOX
-# =========================================================
-st.markdown('<div class="content-box">', unsafe_allow_html=True)
-
-if st.session_state.tab == 0:
-    st.markdown(
-        "<h2 style='color:#f9fafb;'>📍 ข้อมูลบันทึก</h2>",
-        unsafe_allow_html=True
-    )
-
-elif st.session_state.tab == 1:
-    st.markdown(
-        "<h2 style='color:#f9fafb;'>👮 ผู้บังคับบัญชา</h2>",
-        unsafe_allow_html=True
-    )
-
-elif st.session_state.tab == 2:
-    st.markdown(
-        "<h2 style='color:#f9fafb;'>👤 ข้อมูลผู้ต้องหา</h2>",
-        unsafe_allow_html=True
-    )
-
-elif st.session_state.tab == 3:
-    st.markdown(
-        "<h2 style='color:#f9fafb;'>📝 รายละเอียดคดี</h2>",
-        unsafe_allow_html=True
-    )
-
-st.markdown("</div>", unsafe_allow_html=True)
-
+    for i, (col, lbl) in enumerate(zip([n1,n2,n3,n4], tab_labels)):
+        with col:
+            if st.button(lbl, key=f"nav_tab_{i}", use_container_width=True):
+                st.session_state.tab = i
+                st.rerun()
+    st.write("---")
 # ======================TAB 1: ข้อมูลบันทึก ====================
 # ===========================================================
 if st.session_state.tab == 0:
@@ -1931,21 +1422,27 @@ if st.session_state.tab == 0:
         )
 
         # ================= เวลาลงบันทึก =================
-        report_time = st.time_input(
+        tz_thai = pytz.timezone("Asia/Bangkok")
+        current_time = datetime.datetime.now(tz_thai).replace(second=0, microsecond=0).time()
+
+        # ล็อคเวลาบันทึกไว้ครั้งแรก ไม่ให้เปลี่ยนแปลง
+        if "report_time_locked" not in st.session_state:
+            st.session_state["report_time_locked"] = current_time
+
+        report_time = st.session_state["report_time_locked"]
+
+        st.text_input(
             "เวลาลงบันทึก",
-            value=st.session_state.form.get(
-                'report_time',
-                datetime.datetime.now().time()
-            ),
-            step=60
+            value=report_time.strftime("%H:%M"),
+            disabled=True,
+            key="report_time_display"
         )
-    # ================= SAVE SESSION =================
+ # ================= SAVE SESSION =================
     st.session_state.form.update({
         "record_loc": record_loc,
         "incident_date": incident_date,
         "arrest_time": arrest_time,
         "report_date": report_date,
-        "report_time": report_time
     })
 
     st.write("---")
@@ -2091,49 +1588,18 @@ if st.session_state.tab == 1:
 # ================= TAB 3 (Index 2): ข้อมูลผู้ต้องหา =================
 if st.session_state.tab == 2:
     st.write("")
-
-    # ================= SMART CARD =================
-    def read_smart_card():
-        """
-        ฟังก์ชันอ่านข้อมูลจากเครื่องอ่านบัตรประชาชน
-        ตอนนี้ยังเป็น placeholder (คืนค่า None ถ้าไม่มีการเชื่อมต่อจริง)
-        """
-        try:
-            # TODO: เพิ่มโค้ดเชื่อมต่อเครื่องอ่านบัตรจริง
-            return {
-                "name": "นายสมชาย ใจดี",
-                "sub_id": "1234567890123",
-                "age": 35
-            }
-        except:
-            return None
-
-    # ปุ่มกดดึงข้อมูล
-    if st.button("💳 ดึงข้อมูลจากเครื่องอ่านบัตรประชาชน", key="btn_smart_card_t3"):
-        card_data = read_smart_card()
-        if card_data:
-            st.session_state.form.update({
-                "name": card_data['name'],
-                "sub_id": card_data['sub_id'],
-                "age": card_data['age']
-            })
-            st.success(f"ดึงข้อมูลสำเร็จ: {card_data['name']}")
-            st.rerun()
-        else:
-            st.error("ไม่พบเครื่องอ่านบัตร หรือไม่ได้เสียบบัตร")
-
     # ================= BASIC INFO =================
     col_fname, col_lname, col_id, col_age = st.columns([2,2,2,1])
 
     first_name = col_fname.text_input(
-        "ชื่อ",
-        "",
+        "ชื่อ", 
+        value=st.session_state.form.get("first_name", ""),  # ← เพิ่ม
         key="input_fname_t3"
     )
 
     last_name = col_lname.text_input(
         "นามสกุล",
-        "",
+        value=st.session_state.form.get("last_name", ""),   # ← เพิ่ม
         key="input_lname_t3"
     )
 
@@ -2156,16 +1622,7 @@ if st.session_state.tab == 2:
     st.caption("🏠 ข้อมูลที่อยู่")
 
     # ================= GEO DATA =================
-    try:
-        df_geo = pd.read_csv("thai_districts.csv", encoding="utf-8-sig")
-    except:
-        df_geo = pd.read_csv("thai_districts.csv", encoding="cp874")
-
- # 🔥 CLEAN GEO DATA (แก้ “อำเภอ/เขต/ตำบล”)
-
-    df_geo["ProvinceThai"] = df_geo["ProvinceThai"].apply(clean_geo)
-    df_geo["DistrictThai"] = df_geo["DistrictThai"].apply(clean_geo)
-    df_geo["TambonThai"] = df_geo["TambonThai"].apply(clean_geo)
+    df_geo = load_geo()
     # 🔥 safe index กันพัง selectbox
     def safe_index(value, options):
         return options.index(value) if value in options else 0
@@ -2859,7 +2316,6 @@ if st.session_state.tab == 3:
                     buffer = BytesIO()
                     doc.save(buffer)
                     buffer.seek(0)
-
                     st.download_button(
                         "📥 ดาวน์โหลดWord",
                         buffer,
