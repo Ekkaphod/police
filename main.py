@@ -1346,25 +1346,25 @@ if st.session_state.page == "schedule":
         st.rerun()
 
 
-    # =================================================================
-    # ─── FORM PAGE ──────────────────────────────────────────────────
-    # =================================================================
-    if st.session_state.page != "form":
-        st.stop()
+# =================================================================
+# ─── FORM PAGE ──────────────────────────────────────────────────
+# =================================================================
+if st.session_state.page != "form":
+    st.stop()
 
-    # ── NAV ──
-    st.markdown('<div class="main-header">📋&nbsp; บันทึกการจับกุม</div>', unsafe_allow_html=True)
+# ── NAV ──
+st.markdown('<div class="main-header">📋&nbsp; บันทึกการจับกุม</div>', unsafe_allow_html=True)
 
-    tab_labels = ["📍 ข้อมูลบันทึก","👮 เจ้าหน้าที่","👤 ผู้ต้องหา","📝 รายละเอียด"]
+tab_labels = ["📍 ข้อมูลบันทึก","👮 เจ้าหน้าที่","👤 ผู้ต้องหา","📝 รายละเอียด"]
 
-    n1, n2, n3, n4 = st.columns(4)
+n1, n2, n3, n4 = st.columns(4)
 
-    for i, (col, lbl) in enumerate(zip([n1,n2,n3,n4], tab_labels)):
-        with col:
-            if st.button(lbl, key=f"nav_tab_{i}", use_container_width=True):
-                st.session_state.tab = i
-                st.rerun()
-    st.write("---")
+for i, (col, lbl) in enumerate(zip([n1,n2,n3,n4], tab_labels)):
+    with col:
+        if st.button(lbl, key=f"nav_tab_{i}", use_container_width=True):
+            st.session_state.tab = i
+            st.rerun()
+st.write("---")
 # ======================TAB 1: ข้อมูลบันทึก ====================
 # ===========================================================
 if st.session_state.tab == 0:
